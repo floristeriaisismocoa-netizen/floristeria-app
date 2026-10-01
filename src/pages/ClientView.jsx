@@ -80,15 +80,32 @@ export function ClientView() {
     <div className="container-fluid px-2 px-md-4 py-2">
       <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
 
-      {/* Contenedor de Categorías con scroll horizontal independiente */}
-      <div className="category-scroll mb-4">
+      {/* Scroll horizontal forzado con estilos inline directos */}
+      <div 
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          gap: '8px',
+          paddingBottom: '8px',
+          width: '100%',
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none'
+        }}
+        className="mb-4"
+      >
         {categories.map((cat) => (
           <button
             key={cat}
             type="button"
             onClick={() => setSelectedCategory(cat)}
             className={`btn ${selectedCategory === cat ? 'btn-danger' : 'btn-outline-danger'} rounded-pill px-3 py-1`}
-            style={{ flexShrink: 0 }}
+            style={{
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
+            }}
           >
             {cat}
           </button>
