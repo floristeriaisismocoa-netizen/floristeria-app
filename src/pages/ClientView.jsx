@@ -17,7 +17,7 @@ export function ClientView() {
     return () => unsubscribe();
   }, []);
 
-  const categories = ['Todos', 'Ramos', 'Desayunos', 'Pelunches', 'Mensajes'];
+  const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes'];
 
   const filteredProducts = selectedCategory === 'Todos'
     ? products
@@ -58,7 +58,7 @@ export function ClientView() {
         message,
         items: cart,
         total: calculateTotal(),
-        status: 'pending', // Pasa a taller/cocina
+        status: 'pending',
         createdAt: new Date().toISOString(),
       };
 
@@ -80,13 +80,15 @@ export function ClientView() {
     <div className="container-fluid px-2 px-md-4 py-2">
       <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
 
-      {/* Contenedor de Categorías con scroll horizontal */}
+      {/* Contenedor de Categorías con scroll horizontal independiente */}
       <div className="category-scroll mb-4">
         {categories.map((cat) => (
           <button
             key={cat}
+            type="button"
             onClick={() => setSelectedCategory(cat)}
-            className={`btn ${selectedCategory === cat ? 'btn-danger' : 'btn-outline-danger'} text-nowrap rounded-pill px-3`}
+            className={`btn ${selectedCategory === cat ? 'btn-danger' : 'btn-outline-danger'} rounded-pill px-3 py-1`}
+            style={{ flexShrink: 0 }}
           >
             {cat}
           </button>
