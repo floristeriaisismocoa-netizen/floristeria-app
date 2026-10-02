@@ -6,7 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Componentes y Vistas
 import { Navbar } from './components/Navbar';
-import { ClientView } from './pages/ClientView'; // Nombre exacto del archivo
+import { ClientView } from './pages/ClientView';
 import { KitchenView } from './pages/KitchenView';
 import { DeliveryView } from './pages/DeliveryView';
 import { LoginView } from './pages/LoginView';
@@ -25,7 +25,7 @@ export default function App() {
           <Route 
             path="/taller" 
             element={
-              <ProtectedRoute allowedRoles={['taller', 'admin']}>
+              <ProtectedRoute allowedRoles={['florist', 'taller', 'admin']}>
                 <KitchenView />
               </ProtectedRoute>
             } 
@@ -34,7 +34,7 @@ export default function App() {
           <Route 
             path="/domicilios" 
             element={
-              <ProtectedRoute allowedRoles={['domicilio', 'admin']}>
+              <ProtectedRoute allowedRoles={['delivery', 'domicilio', 'admin']}>
                 <DeliveryView />
               </ProtectedRoute>
             } 
