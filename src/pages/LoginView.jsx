@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/config'; // Importación directa de Firebase
 
 export function LoginView() {
   const [email, setEmail] = useState('');
@@ -8,7 +10,6 @@ export function LoginView() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -17,8 +18,28 @@ export function LoginView() {
     setSubmitting(true);
 
     try {
-      await login(email, password);
-      navigate('/');
+      // 1. Autenticar credenciales
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // 2. Obtener el documento del usuario desde Firestore
+      const userDocRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userDocRef);
+
+      if (userSnap.exists()) {
+        const role = userSnap.data().role;
+
+        // 3. Redirigir según el rol de la base de datos
+        if (role === 'florist' || role === 'taller') {
+          navigate('/taller');
+        } else if (role === 'delivery' || role === 'domicilio') {
+          navigate('/domicilios');
+        } else {
+          navigate('/');
+        }
+      } else {
+        setError('El usuario no tiene un rol configurado en Firestore.');
+      }
     } catch (err) {
       console.error(err);
       setError('Credenciales incorrectas. Verifica tu correo y contraseña.');

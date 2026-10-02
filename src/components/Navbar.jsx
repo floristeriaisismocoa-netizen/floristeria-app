@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
+
+  const handleLogout = async () => {
+    try {
+      closeMenu();
+      if (logout) await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
 
   return (
     <nav className="navbar navbar-dark bg-dark mb-3 shadow-sm sticky-top">
@@ -25,7 +38,7 @@ export function Navbar() {
         </button>
       </div>
 
-      {/* Menú desplegable móvil impulsado por estado de React */}
+      {/* Menú desplegable móvil */}
       {isOpen && (
         <div className="w-100 bg-dark px-3 pb-3 pt-2">
           <div className="nav flex-column gap-2">
@@ -50,6 +63,26 @@ export function Navbar() {
             >
               <i className="bi bi-truck me-2"></i>Domicilio
             </Link>
+
+            {/* Opción dinámicas de Login / Logout */}
+            <hr className="border-secondary my-1" />
+            
+            {currentUser ? (
+              <button 
+                className="btn btn-outline-danger w-100 text-start px-3 py-2 fw-bold"
+                onClick={handleLogout}
+              >
+                <i className="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+              </button>
+            ) : (
+              <Link 
+                className={`nav-link px-3 py-2 rounded text-white bg-danger fw-bold ${location.pathname === '/login' ? 'active' : ''}`} 
+                to="/login"
+                onClick={closeMenu}
+              >
+                <i className="bi bi-person-fill me-2"></i>Iniciar Sesión
+              </Link>
+            )}
           </div>
         </div>
       )}
