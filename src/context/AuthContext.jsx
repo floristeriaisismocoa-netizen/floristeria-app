@@ -9,16 +9,20 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Debe iniciar en true
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        // Obtener el rol del usuario desde Firestore
-        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-        if (userDoc.exists()) {
-          setRole(userDoc.data().role);
-        } else {
+        try {
+          const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+          if (userDoc.exists()) {
+            setRole(userDoc.data().role);
+          } else {
+            setRole(null);
+          }
+        } catch (e) {
+          console.error("Error al obtener rol:", e);
           setRole(null);
         }
         setUser(currentUser);
@@ -26,7 +30,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setRole(null);
       }
-      setLoading(false);
+      setLoading(false); // Solo se vuelve false cuando Firebase responde
     });
 
     return () => unsubscribe();
@@ -37,7 +41,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, role, loading, login, logout }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
