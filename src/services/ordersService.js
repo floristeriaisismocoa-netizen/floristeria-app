@@ -58,3 +58,18 @@ export const updateOrderStatus = async (orderId, newStatus) => {
     throw error;
   }
 };
+
+// Escuchar catálogo de productos en tiempo real (o fallback)
+export const subscribeToProducts = (callback) => {
+  const productsRef = collection(db, 'products');
+  return onSnapshot(productsRef, (snapshot) => {
+    const products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(products);
+  }, (error) => {
+    console.error("Error al obtener productos de Firestore:", error);
+    callback([]);
+  });
+};

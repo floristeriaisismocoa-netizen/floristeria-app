@@ -6,22 +6,22 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Componentes y Vistas
 import { Navbar } from './components/Navbar';
-import { CatalogView } from './pages/CatalogView';
-import { KitchenView } from './pages/KitchenView'; // Nombre exacto de tu componente
+import { ClientView } from './pages/ClientView'; // Nombre exacto del archivo
+import { KitchenView } from './pages/KitchenView';
 import { DeliveryView } from './pages/DeliveryView';
 import { LoginView } from './pages/LoginView';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Navbar />
         <Routes>
-          {/* Rutas Públicas */}
-          <Route path="/" element={<CatalogView />} />
+          {/* Ruta pública */}
+          <Route path="/" element={<ClientView />} />
           <Route path="/login" element={<LoginView />} />
 
-          {/* Rutas Protegidas por Rol */}
+          {/* Rutas protegidas por Rol */}
           <Route 
             path="/taller" 
             element={
@@ -40,7 +40,7 @@ export default function App() {
             } 
           />
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
