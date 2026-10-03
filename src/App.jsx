@@ -22,9 +22,9 @@ export default function App() {
           <Route path="/" element={<ClientView />} />
           <Route path="/login" element={<LoginView />} />
 
-          {/* Rutas Protegidas por Rol */}
+          {/* Rutas Protegidas por Rol (Coincidiendo con el Navbar) */}
           <Route 
-            path="/taller" 
+            path="/workshop" 
             element={
               <ProtectedRoute allowedRoles={['florist', 'taller', 'admin']}>
                 <KitchenView />
@@ -33,7 +33,7 @@ export default function App() {
           />
 
           <Route 
-            path="/domicilios" 
+            path="/delivery" 
             element={
               <ProtectedRoute allowedRoles={['delivery', 'domicilio', 'admin']}>
                 <DeliveryView />
@@ -49,6 +49,9 @@ export default function App() {
               </ProtectedRoute>
             } 
           />
+
+          {/* Redirección por defecto si la ruta no existe */}
+          <Route path="*" element={<ClientView />} />
         </Routes>
       </AuthProvider>
     </Router>
