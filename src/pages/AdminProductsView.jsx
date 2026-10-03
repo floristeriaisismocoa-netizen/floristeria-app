@@ -15,12 +15,14 @@ export function AdminProductsView() {
   // Referencia para limpiar el input de tipo file
   const fileInputRef = useRef(null);
 
-  // Formulario
+  // Campos del formulario
   const [code, setCode] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Ramos');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
+  
+  // Estado para imágenes existentes (URLs de Firebase) y nuevas imágenes seleccionadas (File objects)
   const [existingImages, setExistingImages] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
 
@@ -31,19 +33,37 @@ export function AdminProductsView() {
     return () => unsubscribe();
   }, []);
 
+  // Manejar selección acumulativa de nuevas imágenes
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    const totalCount = existingImages.length + files.length;
+    if (files.length === 0) return;
+
+    // Combinar los archivos previamente seleccionados con los nuevos seleccionados
+    const updatedFiles = [...selectedFiles, ...files];
+    const totalCount = existingImages.length + updatedFiles.length;
+
     if (totalCount > 10) {
       alert('Solo se permite un máximo de 10 imágenes por producto.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    setSelectedFiles(files);
+
+    setSelectedFiles(updatedFiles);
+
+    // Resetear el valor del input para permitir seleccionar más imágenes en un clic posterior
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
+  // Quitar una imagen de las guardadas previamente en Firebase
   const handleRemoveExistingImage = (indexToRemove) => {
     setExistingImages(existingImages.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  // Quitar una imagen de las nuevas seleccionadas localmente
+  const handleRemoveNewFile = (indexToRemove) => {
+    setSelectedFiles(selectedFiles.filter((_, idx) => idx !== indexToRemove));
   };
 
   const resetForm = () => {
@@ -96,7 +116,6 @@ export function AdminProductsView() {
 
     setLoading(true);
     try {
-      // Aseguramos que el precio se pase como número a la base de datos
       const productData = { 
         code, 
         title, 
@@ -152,7 +171,7 @@ export function AdminProductsView() {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Ej: Ramo de 24 Rosas"
+                placeholder="Ej: Ramo Dubay"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
@@ -179,7 +198,7 @@ export function AdminProductsView() {
               <input
                 type="number"
                 className="form-control"
-                placeholder="85000"
+                placeholder="79000"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 required
@@ -211,28 +230,57 @@ export function AdminProductsView() {
                 onChange={handleFileChange}
               />
               <small className="text-muted d-block mt-1">
-                Imágenes guardadas: {existingImages.length} | Nuevas seleccionadas: {selectedFiles.length} (Total máximo: 10)
+                Guardadas en BD: {existingImages.length} | Seleccionadas para subir: {selectedFiles.length} (Total máximo: 10)
               </small>
             </div>
 
-            {/* Previsualización de Imágenes Guardadas */}
+            {/* Previsualización de Imágenes Guardadas en Firebase (modo edición) */}
             {existingImages.length > 0 && (
               <div className="col-12">
-                <p className="small fw-bold mb-2">Imágenes actuales:</p>
+                <p className="small fw-bold mb-2">Imágenes guardadas actualmente:</p>
                 <div className="d-flex flex-wrap gap-2">
                   {existingImages.map((imgUrl, idx) => (
-                    <div key={idx} className="position-relative">
+                    <div key={`existing-${idx}`} className="position-relative">
                       <img 
                         src={imgUrl} 
-                        alt="Preview" 
+                        alt="Preview de BD" 
                         className="rounded border" 
-                        style={{ width: '80px', height: '80px', objectFit: 'cover' }} 
+                        style={{ width: '75px', height: '75px', objectFit: 'cover' }} 
                       />
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm position-absolute top-0 end-0 p-0 rounded-circle"
-                        style={{ width: '20px', height: '20px', fontSize: '10px' }}
+                        className="btn btn-danger btn-sm position-absolute p-0 rounded-circle"
+                        style={{ width: '20px', height: '20px', fontSize: '10px', top: '-5px', right: '-5px' }}
                         onClick={() => handleRemoveExistingImage(idx)}
+                        title="Eliminar imagen guardada"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Previsualización de Nuevas Imágenes Seleccionadas */}
+            {selectedFiles.length > 0 && (
+              <div className="col-12">
+                <p className="small fw-bold mb-2 text-primary">Nuevas imágenes por agregar:</p>
+                <div className="d-flex flex-wrap gap-2">
+                  {selectedFiles.map((file, idx) => (
+                    <div key={`new-${idx}`} className="position-relative">
+                      <img 
+                        src={URL.createObjectURL(file)} 
+                        alt={`Nuevas-${idx}`} 
+                        className="rounded border border-primary" 
+                        style={{ width: '75px', height: '75px', objectFit: 'cover' }} 
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm position-absolute p-0 rounded-circle"
+                        style={{ width: '20px', height: '20px', fontSize: '10px', top: '-5px', right: '-5px' }}
+                        onClick={() => handleRemoveNewFile(idx)}
+                        title="Quitar esta imagen"
                       >
                         ✕
                       </button>
