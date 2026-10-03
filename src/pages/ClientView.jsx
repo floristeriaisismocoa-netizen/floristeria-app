@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { createOrder, subscribeToProducts } from '../services/ordersService';
+import { createOrder } from '../services/ordersService';
+import { subscribeToProducts } from '../services/productsService'; // Corregido: Importar desde productsService
 
-// Productos predeterminados de la floristería
+// Productos predeterminados
 const DEFAULT_PRODUCTS = [
   { id: '1', name: 'Ramo de 24 Rosas Rojas', price: 85000, category: 'Ramos', image: 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60' },
   { id: '2', name: 'Desayuno Sorpresa Primavera', price: 110000, category: 'Desayunos', image: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=500&auto=format&fit=crop&q=60' },
@@ -18,10 +19,19 @@ export function ClientView() {
   const [orderSuccess, setOrderSuccess] = useState(false);
 
   useEffect(() => {
-    // Escuchar si hay productos cargados en Firestore; si no, mantener los predeterminados
+    // Escuchar productos en tiempo real
     const unsubscribe = subscribeToProducts((firestoreProducts) => {
       if (firestoreProducts && firestoreProducts.length > 0) {
-        setProducts(firestoreProducts);
+        // Normalizar la estructura de los datos para que coincida con ClientView
+        const normalizedProducts = firestoreProducts.map((p) => ({
+          id: p.id,
+          name: p.title || p.name || 'Sin nombre',
+          price: Number(p.price) || 0,
+          category: p.category || 'Otros',
+          image: p.images && p.images.length > 0 ? p.images[0] : (p.image || 'https://via.placeholder.com/500'),
+          code: p.code || ''
+        }));
+        setProducts(normalizedProducts);
       }
     });
     return () => unsubscribe && unsubscribe();
@@ -77,6 +87,7 @@ export function ClientView() {
         items: cart,
         total: totalAmount,
         code: Math.random().toString(36).substring(2, 7).toUpperCase(),
+        createdAt: new Date()
       };
 
       await createOrder(orderData);
@@ -108,7 +119,7 @@ export function ClientView() {
           <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
 
           <div className="d-flex gap-2 mb-4 overflow-auto pb-2">
-            {['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes'].map((cat) => (
+            {['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'].map((cat) => (
               <button
                 key={cat}
                 className={`btn rounded-pill px-3 ${
@@ -134,7 +145,7 @@ export function ClientView() {
                   <div className="card-body d-flex flex-column justify-content-between">
                     <div>
                       <h6 className="fw-bold text-dark mb-1">{p.name}</h6>
-                      <p className="text-danger fw-bold fs-5 mb-2">${p.price.toLocaleString()}</p>
+                      <p className="text-danger fw-bold fs-5 mb-2">${p.price.toLocaleString('es-CO')}</p>
                     </div>
                     <button
                       className="btn btn-outline-danger btn-sm w-100 rounded-2"
@@ -163,7 +174,7 @@ export function ClientView() {
                     <li key={item.id} className="list-group-item d-flex justify-content-between align-items-center px-0">
                       <div>
                         <div className="fw-semibold small">{item.name}</div>
-                        <div className="text-muted small">${(item.price * item.quantity).toLocaleString()}</div>
+                        <div className="text-muted small">${(item.price * item.quantity).toLocaleString('es-CO')}</div>
                       </div>
                       <div className="d-flex align-items-center gap-1">
                         <button className="btn btn-sm btn-light px-2" onClick={() => updateQuantity(item.id, -1)}>-</button>
@@ -179,7 +190,7 @@ export function ClientView() {
 
                 <div className="d-flex justify-content-between fw-bold fs-5 border-top pt-2 mb-3">
                   <span>Total:</span>
-                  <span className="text-danger">${totalAmount.toLocaleString()}</span>
+                  <span className="text-danger">${totalAmount.toLocaleString('es-CO')}</span>
                 </div>
 
                 <form onSubmit={handleOrderSubmit}>

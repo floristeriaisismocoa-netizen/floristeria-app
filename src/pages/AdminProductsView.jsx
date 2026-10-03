@@ -1,5 +1,5 @@
 // src/pages/AdminProductsView.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   subscribeToProducts, 
   createProduct, 
@@ -11,6 +11,9 @@ export function AdminProductsView() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
+
+  // Referencia para limpiar el input de tipo file
+  const fileInputRef = useRef(null);
 
   // Formulario
   const [code, setCode] = useState('');
@@ -33,6 +36,7 @@ export function AdminProductsView() {
     const totalCount = existingImages.length + files.length;
     if (totalCount > 10) {
       alert('Solo se permite un máximo de 10 imágenes por producto.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
     setSelectedFiles(files);
@@ -51,6 +55,9 @@ export function AdminProductsView() {
     setDescription('');
     setExistingImages([]);
     setSelectedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleEdit = (product) => {
@@ -62,6 +69,9 @@ export function AdminProductsView() {
     setDescription(product.description || '');
     setExistingImages(product.images || []);
     setSelectedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -86,7 +96,14 @@ export function AdminProductsView() {
 
     setLoading(true);
     try {
-      const productData = { code, title, category, price, description };
+      // Aseguramos que el precio se pase como número a la base de datos
+      const productData = { 
+        code, 
+        title, 
+        category, 
+        price: Number(price) || 0, 
+        description 
+      };
 
       if (editingId) {
         await updateProduct(editingId, productData, selectedFiles, existingImages);
@@ -186,6 +203,7 @@ export function AdminProductsView() {
                 Imágenes del Producto (Máximo 10)
               </label>
               <input
+                ref={fileInputRef}
                 type="file"
                 className="form-control"
                 accept="image/*"
