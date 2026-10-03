@@ -2,7 +2,8 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Navbar() {
+// Cambiamos "export default function" por "export function"
+export function Navbar() {
   const { user, role, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -125,3 +126,6 @@ export default function Navbar() {
     </nav>
   );
 }
+
+// También agregamos la exportación por defecto para mantener compatibilidad con ambas formas
+export default Navbar;
