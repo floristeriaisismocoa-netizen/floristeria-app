@@ -16,7 +16,7 @@ export function Navbar() {
     }
   };
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => location.pathname.startsWith(path) && (path !== '/' || location.pathname === '/');
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark px-3 py-2 shadow-sm">
@@ -41,12 +41,23 @@ export function Navbar() {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
+            {/* TIENDA */}
             <li className="nav-item">
               <Link
-                className={`nav-link px-3 rounded-2 fw-medium ${isActive('/') ? 'active bg-secondary bg-opacity-25' : ''}`}
+                className={`nav-link px-3 rounded-2 fw-medium ${isActive('/') && location.pathname === '/' ? 'active bg-secondary bg-opacity-25' : ''}`}
                 to="/"
               >
                 🏠 Tienda
+              </Link>
+            </li>
+
+            {/* RASTREAR PEDIDO (PÚBLICO PARA CLIENTES) */}
+            <li className="nav-item">
+              <Link
+                className={`nav-link px-3 rounded-2 fw-medium ${isActive('/rastreo') ? 'active bg-secondary bg-opacity-25 text-warning' : ''}`}
+                to="/rastreo"
+              >
+                🔍 Rastrear Pedido
               </Link>
             </li>
 

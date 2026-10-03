@@ -15,7 +15,6 @@ export function ClientView() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Escuchar cambios en el carrito
   useEffect(() => {
     const syncCart = () => {
       const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
@@ -26,7 +25,6 @@ export function ClientView() {
     return () => window.removeEventListener('cartUpdated', syncCart);
   }, []);
 
-  // Guardar cambios del carrito en localStorage
   const updateCart = (newCart) => {
     setCart(newCart);
     localStorage.setItem('floristeria_cart', JSON.stringify(newCart));
@@ -75,7 +73,6 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
-  // Función para procesar la orden e iniciar la secuencia de seguimiento
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
@@ -86,18 +83,20 @@ export function ClientView() {
         title: item.title || item.name
       }));
 
-      // 1. Guardar la orden en Firestore
+      // Guardar orden enviada directamente a PENDIENTE_PREPARACION para que llegue al taller
       const docRef = await addDoc(collection(db, 'orders'), {
         items: formattedItems,
         total: cartTotal,
-        status: 'PROCESANDO_PAGO',
+        status: 'PENDIENTE_PREPARACION', // 👈 Llega inmediatamente al Taller
         createdAt: serverTimestamp()
       });
 
-      // 2. Limpiar carrito
       updateCart([]);
 
-      // 3. Redirigir a rastreo individual
+      // Guardar la última orden en localStorage para consultar rápidamente
+      localStorage.setItem('last_order_id', docRef.id);
+
+      // Redirigir a la vista de rastreo del cliente
       navigate(`/rastreo/${docRef.id}`);
     } catch (error) {
       console.error('Error al procesar el pedido:', error);
@@ -114,7 +113,6 @@ export function ClientView() {
         <div className="col-lg-8">
           <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
 
-          {/* Filtros de Categoría */}
           <div className="d-flex flex-wrap gap-2 mb-4">
             {categories.map((cat) => (
               <button
@@ -226,7 +224,7 @@ export function ClientView() {
                   onClick={handleCheckout}
                   disabled={isProcessing}
                 >
-                  {isProcessing ? 'Procesando Pago...' : 'Proceder al Pago'}
+                  {isProcessing ? 'Enviando a Taller...' : 'Proceder al Pago'}
                 </button>
               </>
             )}
