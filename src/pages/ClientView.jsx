@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { subscribeToProducts } from '../services/productsService';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/config'; // Asegúrate de que la ruta a tu config de Firebase sea correcta
+import { db } from '../config/firebase';
 
 export function ClientView() {
   const navigate = useNavigate();
@@ -15,7 +15,7 @@ export function ClientView() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Escuchar cambios en el carrito (incluyendo desde ProductDetailView)
+  // Escuchar cambios en el carrito (sincronización con ProductDetailView)
   useEffect(() => {
     const syncCart = () => {
       const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
@@ -75,24 +75,23 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
-  // Función para procesar la compra y enviar a Taller
+  // Procesar la compra, guardar pedido en Firestore y redirigir al Taller
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
     setIsProcessing(true);
     try {
-      // Guardar el pedido en la colección 'orders' o 'pedidos' de Firebase
       await addDoc(collection(db, 'orders'), {
         items: cart,
         total: cartTotal,
-        status: 'en_taller', // Estado para que aparezca inmediatamente en KitchenView / Taller
+        status: 'en_taller',
         createdAt: serverTimestamp()
       });
 
-      // Vaciar el carrito
+      // Vaciar carrito tras la compra exitosa
       updateCart([]);
 
-      // Redireccionar a la vista del Taller
+      // Redirigir automáticamente a la vista de Taller
       navigate('/taller');
     } catch (error) {
       console.error('Error al procesar el pedido:', error);
@@ -109,6 +108,7 @@ export function ClientView() {
         <div className="col-lg-8">
           <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
 
+          {/* Filtros de Categoría */}
           <div className="d-flex flex-wrap gap-2 mb-4">
             {categories.map((cat) => (
               <button

@@ -73,3 +73,12 @@ export const deleteProduct = async (id) => {
   const productRef = doc(db, PRODUCTS_COLLECTION, id);
   return await deleteDoc(productRef);
 };
+// Crear pedido para Taller
+export const createOrder = async (cartItems, total) => {
+  return await addDoc(collection(db, 'orders'), {
+    items: cartItems,
+    total: total,
+    status: 'en_taller',
+    createdAt: serverTimestamp()
+  });
+};
