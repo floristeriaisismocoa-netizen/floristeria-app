@@ -5,7 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Componentes y Vistas
-import { Navbar } from './components/Navbar';
+import Navbar from './components/Navbar';
 import { ClientView } from './pages/ClientView';
 import { KitchenView } from './pages/KitchenView';
 import { DeliveryView } from './pages/DeliveryView';
@@ -22,9 +22,9 @@ export default function App() {
           <Route path="/" element={<ClientView />} />
           <Route path="/login" element={<LoginView />} />
 
-          {/* Rutas Protegidas por Rol (Coincidiendo con el Navbar) */}
+          {/* Rutas Protegidas por Rol */}
           <Route 
-            path="/workshop" 
+            path="/taller" 
             element={
               <ProtectedRoute allowedRoles={['florist', 'taller', 'admin']}>
                 <KitchenView />
@@ -33,7 +33,7 @@ export default function App() {
           />
 
           <Route 
-            path="/delivery" 
+            path="/domicilios" 
             element={
               <ProtectedRoute allowedRoles={['delivery', 'domicilio', 'admin']}>
                 <DeliveryView />
@@ -50,7 +50,7 @@ export default function App() {
             } 
           />
 
-          {/* Redirección por defecto si la ruta no existe */}
+          {/* Fallback a inicio */}
           <Route path="*" element={<ClientView />} />
         </Routes>
       </AuthProvider>
