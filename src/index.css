@@ -86,3 +86,12 @@ button, a {
     height: auto;
   }
 }
+/* Quitar borde/sombra azul al hacer clic o seleccionar botones */
+.btn:focus,
+.btn:active,
+.btn:focus-visible,
+.navbar-toggler:focus,
+.navbar-toggler:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
