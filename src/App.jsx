@@ -7,6 +7,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 // Componentes y Vistas
 import Navbar from './components/Navbar';
 import { ClientView } from './pages/ClientView';
+import { ProductDetailView } from './pages/ProductDetailView';
 import { KitchenView } from './pages/KitchenView';
 import { DeliveryView } from './pages/DeliveryView';
 import { LoginView } from './pages/LoginView';
@@ -20,6 +21,7 @@ export default function App() {
         <Routes>
           {/* Rutas Públicas */}
           <Route path="/" element={<ClientView />} />
+          <Route path="/producto/:id" element={<ProductDetailView />} />
           <Route path="/login" element={<LoginView />} />
 
           {/* Rutas Protegidas por Rol */}

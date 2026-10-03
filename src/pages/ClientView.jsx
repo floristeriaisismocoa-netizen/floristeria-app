@@ -1,39 +1,32 @@
+// src/pages/ClientView.jsx
 import React, { useState, useEffect } from 'react';
-import { createOrder } from '../services/ordersService';
-import { subscribeToProducts } from '../services/productsService'; // Corregido: Importar desde productsService
-
-// Productos predeterminados
-const DEFAULT_PRODUCTS = [
-  { id: '1', name: 'Ramo de 24 Rosas Rojas', price: 85000, category: 'Ramos', image: 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=500&auto=format&fit=crop&q=60' },
-  { id: '2', name: 'Desayuno Sorpresa Primavera', price: 110000, category: 'Desayunos', image: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=500&auto=format&fit=crop&q=60' },
-  { id: '3', name: 'Peluche Gigante de Oso', price: 95000, category: 'Peluches', image: 'https://images.unsplash.com/photo-1559454403-b8fb88521f11?w=500&auto=format&fit=crop&q=60' },
-  { id: '4', name: 'Caja con Rosas y Mensaje', price: 75000, category: 'Mensajes', image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=500&auto=format&fit=crop&q=60' }
-];
+import { Link } from 'react-router-dom';
+import { subscribeToProducts } from '../services/productsService';
 
 export function ClientView() {
-  const [products, setProducts] = useState(DEFAULT_PRODUCTS);
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
-  const [customerInfo, setCustomerInfo] = useState({ name: '', address: '', phone: '' });
-  const [submitting, setSubmitting] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [loading, setLoading] = useState(true);
 
+  // Escuchar productos en tiempo real desde Firebase
   useEffect(() => {
-    // Escuchar productos en tiempo real
-    const unsubscribe = subscribeToProducts((firestoreProducts) => {
-      if (firestoreProducts && firestoreProducts.length > 0) {
-        // Normalizar la estructura de los datos para que coincida con ClientView
-        const normalizedProducts = firestoreProducts.map((p) => ({
-          id: p.id,
-          name: p.title || p.name || 'Sin nombre',
-          price: Number(p.price) || 0,
-          category: p.category || 'Otros',
-          image: p.images && p.images.length > 0 ? p.images[0] : (p.image || 'https://via.placeholder.com/500'),
-          code: p.code || ''
-        }));
-        setProducts(normalizedProducts);
-      }
+    const unsubscribe = subscribeToProducts((data) => {
+      // Mapear los datos de Firebase al formato del cliente
+      const mappedProducts = data.map((item) => ({
+        id: item.id,
+        name: item.title || item.name || 'Sin Nombre',
+        price: Number(item.price) || 0,
+        category: item.category || 'Ramos',
+        description: item.description || '',
+        image: item.images && item.images.length > 0 
+          ? item.images[0] 
+          : 'https://via.placeholder.com/300?text=Sin+Imagen'
+      }));
+      setProducts(mappedProducts);
+      setLoading(false);
     });
+
     return () => unsubscribe && unsubscribe();
   }, []);
 
@@ -42,89 +35,44 @@ export function ClientView() {
       const existing = prevCart.find((item) => item.id === product.id);
       if (existing) {
         return prevCart.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
       }
       return [...prevCart, { ...product, quantity: 1 }];
     });
   };
 
-  const removeFromCart = (id) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== id));
+  const removeFromCart = (productId) => {
+    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
   };
 
-  const updateQuantity = (id, delta) => {
-    setCart((prevCart) =>
-      prevCart
-        .map((item) => {
-          if (item.id === id) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean)
-    );
-  };
+  const filteredProducts = selectedCategory === 'Todos'
+    ? products
+    : products.filter((p) => p.category === selectedCategory);
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const filteredProducts =
-    selectedCategory === 'Todos'
-      ? products
-      : products.filter((p) => p.category === selectedCategory);
-
-  const handleOrderSubmit = async (e) => {
-    e.preventDefault();
-    if (cart.length === 0) return;
-
-    setSubmitting(true);
-    setOrderSuccess(false);
-
-    try {
-      const orderData = {
-        customer: customerInfo,
-        items: cart,
-        total: totalAmount,
-        code: Math.random().toString(36).substring(2, 7).toUpperCase(),
-        createdAt: new Date()
-      };
-
-      await createOrder(orderData);
-
-      setCart([]);
-      setCustomerInfo({ name: '', address: '', phone: '' });
-      setOrderSuccess(true);
-    } catch (err) {
-      console.error('Error al enviar pedido:', err);
-      alert('Ocurrió un error al procesar el pedido.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
   return (
     <div className="container py-4">
-      {orderSuccess && (
-        <div className="alert alert-success alert-dismissible fade show" role="alert">
-          <i className="bi bi-check-circle-fill me-2"></i>
-          <strong>¡Pedido enviado con éxito!</strong> El pedido ya está en cola para el Taller.
-          <button type="button" className="btn-close" onClick={() => setOrderSuccess(false)}></button>
-        </div>
-      )}
-
       <div className="row g-4">
-        {/* Catálogo */}
+        {/* Sección de Catálogo de Productos */}
         <div className="col-lg-8">
           <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
 
-          <div className="d-flex gap-2 mb-4 overflow-auto pb-2">
-            {['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'].map((cat) => (
+          {/* Filtros por Categoría */}
+          <div className="d-flex flex-wrap gap-2 mb-4">
+            {categories.map((cat) => (
               <button
                 key={cat}
-                className={`btn rounded-pill px-3 ${
-                  selectedCategory === cat ? 'btn-danger' : 'btn-outline-danger'
-                }`}
+                className={`btn btn-sm ${
+                  selectedCategory === cat
+                    ? 'btn-danger fw-bold'
+                    : 'btn-outline-danger'
+                } rounded-pill px-3`}
                 onClick={() => setSelectedCategory(cat)}
               >
                 {cat}
@@ -132,103 +80,100 @@ export function ClientView() {
             ))}
           </div>
 
-          <div className="row row-cols-1 row-cols-md-2 g-3">
-            {filteredProducts.map((p) => (
-              <div className="col" key={p.id}>
-                <div className="card h-100 border-0 shadow-sm rounded-3 overflow-hidden">
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="card-img-top"
-                    style={{ height: '180px', objectFit: 'cover' }}
-                  />
-                  <div className="card-body d-flex flex-column justify-content-between">
-                    <div>
-                      <h6 className="fw-bold text-dark mb-1">{p.name}</h6>
-                      <p className="text-danger fw-bold fs-5 mb-2">${p.price.toLocaleString('es-CO')}</p>
+          {/* Estado de Carga */}
+          {loading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-danger" role="status"></div>
+              <p className="mt-2 text-muted">Cargando catálogo...</p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-5 bg-light rounded-3">
+              <p className="text-muted mb-0">No hay productos disponibles en esta categoría.</p>
+            </div>
+          ) : (
+            /* Grilla de Productos */
+            <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+              {filteredProducts.map((p) => (
+                <div className="col" key={p.id}>
+                  <div className="card h-100 border-0 shadow-sm rounded-3 overflow-hidden">
+                    <Link to={`/producto/${p.id}`}>
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        className="card-img-top"
+                        style={{ height: '180px', objectFit: 'cover', cursor: 'pointer' }}
+                      />
+                    </Link>
+                    <div className="card-body d-flex flex-column justify-content-between p-3">
+                      <div>
+                        <Link to={`/producto/${p.id}`} className="text-decoration-none text-dark">
+                          <h6 className="fw-bold mb-1">{p.name}</h6>
+                        </Link>
+                        <p className="text-danger fw-bold fs-5 mb-2">
+                          ${p.price.toLocaleString('es-CO')}
+                        </p>
+                      </div>
+                      <button
+                        className="btn btn-outline-danger btn-sm w-100 rounded-2 fw-bold"
+                        onClick={() => addToCart(p)}
+                      >
+                        <i className="bi bi-cart-plus me-1"></i> Agregar al Carrito
+                      </button>
                     </div>
-                    <button
-                      className="btn btn-outline-danger btn-sm w-100 rounded-2"
-                      onClick={() => addToCart(p)}
-                    >
-                      <i className="bi bi-cart-plus me-1"></i> Agregar al Carrito
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Carrito y Datos de Envío */}
+        {/* Sección del Carrito de Compras */}
         <div className="col-lg-4">
           <div className="card border-0 shadow-sm rounded-3 p-3 sticky-top" style={{ top: '80px' }}>
-            <h5 className="fw-bold mb-3">Carrito de Compras</h5>
+            <h4 className="fw-bold mb-3">Carrito de Compras</h4>
 
             {cart.length === 0 ? (
-              <p className="text-muted small">El carrito está vacío</p>
+              <p className="text-muted small mb-0">El carrito está vacío</p>
             ) : (
-              <div>
-                <ul className="list-group list-group-flush mb-3">
+              <>
+                <div className="d-flex flex-column gap-2 mb-3 max-vh-50 overflow-auto">
                   {cart.map((item) => (
-                    <li key={item.id} className="list-group-item d-flex justify-content-between align-items-center px-0">
-                      <div>
-                        <div className="fw-semibold small">{item.name}</div>
-                        <div className="text-muted small">${(item.price * item.quantity).toLocaleString('es-CO')}</div>
+                    <div key={item.id} className="d-flex align-items-center justify-content-between bg-light p-2 rounded">
+                      <div className="d-flex align-items-center gap-2">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="rounded"
+                          style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                        />
+                        <div>
+                          <p className="mb-0 small fw-bold">{item.name}</p>
+                          <small className="text-muted">
+                            {item.quantity} x ${item.price.toLocaleString('es-CO')}
+                          </small>
+                        </div>
                       </div>
-                      <div className="d-flex align-items-center gap-1">
-                        <button className="btn btn-sm btn-light px-2" onClick={() => updateQuantity(item.id, -1)}>-</button>
-                        <span className="small fw-bold px-1">{item.quantity}</span>
-                        <button className="btn btn-sm btn-light px-2" onClick={() => updateQuantity(item.id, 1)}>+</button>
-                        <button className="btn btn-sm text-danger ms-1" onClick={() => removeFromCart(item.id)}>
-                          <i className="bi bi-trash"></i>
-                        </button>
-                      </div>
-                    </li>
+                      <button
+                        className="btn btn-sm btn-link text-danger p-0 ms-2"
+                        onClick={() => removeFromCart(item.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   ))}
-                </ul>
-
-                <div className="d-flex justify-content-between fw-bold fs-5 border-top pt-2 mb-3">
-                  <span>Total:</span>
-                  <span className="text-danger">${totalAmount.toLocaleString('es-CO')}</span>
                 </div>
 
-                <form onSubmit={handleOrderSubmit}>
-                  <h6 className="fw-bold text-dark small mb-2">Datos para el Envío:</h6>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mb-2"
-                    placeholder="Nombre del destinatario"
-                    value={customerInfo.name}
-                    onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                    required
-                  />
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mb-2"
-                    placeholder="Dirección de entrega"
-                    value={customerInfo.address}
-                    onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                    required
-                  />
-                  <input
-                    type="tel"
-                    className="form-control form-control-sm mb-3"
-                    placeholder="Teléfono de contacto"
-                    value={customerInfo.phone}
-                    onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                    required
-                  />
+                <hr />
 
-                  <button
-                    type="submit"
-                    className="btn btn-danger w-100 py-2 rounded-2 fw-bold"
-                    disabled={submitting}
-                  >
-                    {submitting ? 'Enviando...' : 'Confirmar y Enviar al Taller'}
-                  </button>
-                </form>
-              </div>
+                <div className="d-flex justify-content-between align-items-center fw-bold mb-3">
+                  <span>Total:</span>
+                  <span className="text-danger fs-5">${cartTotal.toLocaleString('es-CO')}</span>
+                </div>
+
+                <button className="btn btn-danger w-100 fw-bold py-2 rounded-2">
+                  Proceder al Pago
+                </button>
+              </>
             )}
           </div>
         </div>
