@@ -15,7 +15,7 @@ export function ClientView() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Escuchar cambios en el carrito (sincronización con otras vistas)
+  // Escuchar cambios en el carrito
   useEffect(() => {
     const syncCart = () => {
       const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
@@ -75,36 +75,33 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
-  // Función para procesar el pago y crear el pedido en Firebase
+  // Función para procesar el pago y crear la orden compatible con KitchenView
   const handleCheckout = async () => {
-    console.log('--- BOTÓN PRESIONADO: INICIANDO PAGO ---');
-    if (cart.length === 0) {
-      console.log('El carrito está vacío, no se procesa la orden.');
-      return;
-    }
+    if (cart.length === 0) return;
 
     setIsProcessing(true);
     try {
-      console.log('Guardando orden en la colección "orders" de Firestore...', cart);
-      
-      const docRef = await addDoc(collection(db, 'orders'), {
-        items: cart,
+      // Mapeamos los items para asegurarnos de que incluyan tanto 'title' como 'name'
+      const formattedItems = cart.map(item => ({
+        ...item,
+        title: item.title || item.name
+      }));
+
+      await addDoc(collection(db, 'orders'), {
+        items: formattedItems,
         total: cartTotal,
-        status: 'en_taller',
+        status: 'PENDIENTE_PREPARACION', // 👈 Estado exacto que espera KitchenView
         createdAt: serverTimestamp()
       });
 
-      console.log('¡Orden guardada con éxito! ID:', docRef.id);
-      
       // Vaciar carrito local
       updateCart([]);
 
-      // Redirección al taller
-      console.log('Redirigiendo a /taller...');
+      // Redirigir al taller
       navigate('/taller');
     } catch (error) {
-      console.error('Error al procesar el pedido en Firestore:', error);
-      alert('Ocurrió un error al procesar el pedido: ' + error.message);
+      console.error('Error al procesar el pedido:', error);
+      alert('Ocurrió un error al procesar el pedido. Intenta de nuevo.');
     } finally {
       setIsProcessing(false);
     }
