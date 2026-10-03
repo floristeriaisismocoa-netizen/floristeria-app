@@ -8,6 +8,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import { ClientView } from './pages/ClientView';
 import { ProductDetailView } from './pages/ProductDetailView';
+import { OrderTrackingView } from './pages/OrderTrackingView';
 import { KitchenView } from './pages/KitchenView';
 import { DeliveryView } from './pages/DeliveryView';
 import { LoginView } from './pages/LoginView';
@@ -22,6 +23,8 @@ export default function App() {
           {/* Rutas Públicas */}
           <Route path="/" element={<ClientView />} />
           <Route path="/producto/:id" element={<ProductDetailView />} />
+          <Route path="/rastreo" element={<OrderTrackingView />} />
+          <Route path="/rastreo/:orderId" element={<OrderTrackingView />} />
           <Route path="/login" element={<LoginView />} />
 
           {/* Rutas Protegidas por Rol */}

@@ -75,30 +75,30 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
-  // Función para procesar el pago y crear la orden compatible con KitchenView
+  // Función para procesar la orden e iniciar la secuencia de seguimiento
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
     setIsProcessing(true);
     try {
-      // Mapeamos los items para asegurarnos de que incluyan tanto 'title' como 'name'
       const formattedItems = cart.map(item => ({
         ...item,
         title: item.title || item.name
       }));
 
-      await addDoc(collection(db, 'orders'), {
+      // 1. Guardar la orden en Firestore
+      const docRef = await addDoc(collection(db, 'orders'), {
         items: formattedItems,
         total: cartTotal,
-        status: 'PENDIENTE_PREPARACION', // 👈 Estado exacto que espera KitchenView
+        status: 'PROCESANDO_PAGO',
         createdAt: serverTimestamp()
       });
 
-      // Vaciar carrito local
+      // 2. Limpiar carrito
       updateCart([]);
 
-      // Redirigir al taller
-      navigate('/taller');
+      // 3. Redirigir a rastreo individual
+      navigate(`/rastreo/${docRef.id}`);
     } catch (error) {
       console.error('Error al procesar el pedido:', error);
       alert('Ocurrió un error al procesar el pedido. Intenta de nuevo.');
@@ -226,7 +226,7 @@ export function ClientView() {
                   onClick={handleCheckout}
                   disabled={isProcessing}
                 >
-                  {isProcessing ? 'Enviando a Taller...' : 'Proceder al Pago'}
+                  {isProcessing ? 'Procesando Pago...' : 'Proceder al Pago'}
                 </button>
               </>
             )}
