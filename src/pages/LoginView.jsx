@@ -1,8 +1,9 @@
+// src/pages/LoginView.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuth } from '../context/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/config'; // Importación directa de Firebase
+import { db } from '../config/firebase'; // Ruta exacta de tu configuración
 
 export function LoginView() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,7 @@ export function LoginView() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -18,30 +20,36 @@ export function LoginView() {
     setSubmitting(true);
 
     try {
-      // 1. Autenticar credenciales
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const uid = userCredential.user.uid;
+      // 1. Iniciar sesión usando AuthContext
+      const userCredential = await login(email, password);
+      const user = userCredential.user;
 
-      // 2. Obtener el documento del usuario desde Firestore
-      const userDocRef = doc(db, 'users', uid);
-      const userSnap = await getDoc(userDocRef);
+      if (user) {
+        // 2. Obtener el rol directamente de Firestore ('users')
+        const userDocRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userDocRef);
 
-      if (userSnap.exists()) {
-        const role = userSnap.data().role;
+        if (userSnap.exists()) {
+          const role = userSnap.data().role;
 
-        // 3. Redirigir según el rol de la base de datos
-        if (role === 'florist' || role === 'taller') {
-          navigate('/taller');
-        } else if (role === 'delivery' || role === 'domicilio') {
-          navigate('/domicilios');
+          // 3. Redirigir según el rol de la base de datos
+          if (role === 'florist' || role === 'taller') {
+            navigate('/taller');
+            return;
+          } else if (role === 'delivery' || role === 'domicilio') {
+            navigate('/domicilios');
+            return;
+          }
         } else {
-          navigate('/');
+          setError('El usuario no tiene un rol configurado en Firestore.');
+          return;
         }
-      } else {
-        setError('El usuario no tiene un rol configurado en Firestore.');
       }
+
+      // Fallback a tienda si no coincide el rol
+      navigate('/');
     } catch (err) {
-      console.error(err);
+      console.error('Error al iniciar sesión:', err);
       setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
     } finally {
       setSubmitting(false);
