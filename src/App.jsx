@@ -10,6 +10,7 @@ import { ClientView } from './pages/ClientView';
 import { KitchenView } from './pages/KitchenView';
 import { DeliveryView } from './pages/DeliveryView';
 import { LoginView } from './pages/LoginView';
+import { AdminProductsView } from './pages/AdminProductsView';
 
 export default function App() {
   return (
@@ -17,11 +18,11 @@ export default function App() {
       <AuthProvider>
         <Navbar />
         <Routes>
-          {/* Ruta pública */}
+          {/* Rutas Públicas */}
           <Route path="/" element={<ClientView />} />
           <Route path="/login" element={<LoginView />} />
 
-          {/* Rutas protegidas por Rol */}
+          {/* Rutas Protegidas por Rol */}
           <Route 
             path="/taller" 
             element={
@@ -36,6 +37,15 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['delivery', 'domicilio', 'admin']}>
                 <DeliveryView />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminProductsView />
               </ProtectedRoute>
             } 
           />
