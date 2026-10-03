@@ -1,10 +1,11 @@
 // src/pages/OrderTrackingView.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { useAuth } from '../context/AuthContext';
 
-// Definición de etapas del flujo
+// Etapas del flujo de trabajo
 const STEPS = [
   { key: 'PROCESANDO_PAGO', label: 'Procesando Pago', icon: 'bi-credit-card' },
   { key: 'PENDIENTE_PREPARACION', label: 'Enviado a Taller', icon: 'bi-flower1' },
@@ -13,7 +14,6 @@ const STEPS = [
   { key: 'ENTREGADO', label: 'Entregado Exitoso', icon: 'bi-check-circle-fill' }
 ];
 
-// Mapeo flexible por si tus componentes usan minúsculas o variantes
 const mapStatusToIndex = (status) => {
   if (!status) return 0;
   const s = status.toUpperCase();
@@ -25,43 +25,96 @@ const mapStatusToIndex = (status) => {
   return 1;
 };
 
+const getStatusBadge = (status) => {
+  const idx = mapStatusToIndex(status);
+  const step = STEPS[idx];
+  const colors = [
+    'bg-secondary text-white',
+    'bg-warning text-dark',
+    'bg-info text-dark',
+    'bg-primary text-white',
+    'bg-success text-white'
+  ];
+  return (
+    <span className={`badge ${colors[idx]} rounded-pill px-3 py-2 fw-semibold`}>
+      <i className={`bi ${step.icon} me-1`}></i>
+      {step.label}
+    </span>
+  );
+};
+
 export function OrderTrackingView() {
+  const { user, role } = useAuth();
+  const isAdmin = user && (role === 'admin' || role === 'florist' || role === 'taller' || role === 'delivery');
+  
   const { orderId: urlOrderId } = useParams();
   const navigate = useNavigate();
+
   const [searchId, setSearchId] = useState(urlOrderId || '');
   const [currentOrderId, setCurrentOrderId] = useState(urlOrderId || '');
   const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loadingOrder, setLoadingOrder] = useState(false);
+  const [orderError, setOrderError] = useState('');
 
-  // Escuchar el pedido en tiempo real cuando cambia el ID
+  // Estado para el panel global de Administrador
+  const [allOrders, setAllOrders] = useState([]);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('TODOS');
+
+  // 1. Cargar lista completa de pedidos en tiempo real si es Admin
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    setLoadingAll(true);
+    const ordersRef = collection(db, 'orders');
+    const q = query(ordersRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const ordersData = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+        setAllOrders(ordersData);
+        setLoadingAll(false);
+      },
+      (err) => {
+        console.error('Error al cargar lista global de pedidos:', err);
+        setLoadingAll(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [isAdmin]);
+
+  // 2. Escuchar un pedido específico en tiempo real
   useEffect(() => {
     if (!currentOrderId) {
       setOrder(null);
       return;
     }
 
-    setLoading(true);
-    setError('');
+    setLoadingOrder(true);
+    setOrderError('');
 
-    // Escuchador en tiempo real
     const docRef = doc(db, 'orders', currentOrderId.trim());
     const unsubscribe = onSnapshot(
       docRef,
       (docSnap) => {
         if (docSnap.exists()) {
           setOrder({ id: docSnap.id, ...docSnap.data() });
-          setError('');
+          setOrderError('');
         } else {
           setOrder(null);
-          setError('No se encontró ningún pedido con ese código.');
+          setOrderError('No se encontró ningún pedido con ese código ID.');
         }
-        setLoading(false);
+        setLoadingOrder(false);
       },
       (err) => {
-        console.error('Error al rastrear pedido:', err);
-        setError('Ocurrió un error al consultar el pedido.');
-        setLoading(false);
+        console.error('Error al rastrear el pedido:', err);
+        setOrderError('Error al consultar el pedido.');
+        setLoadingOrder(false);
       }
     );
 
@@ -76,70 +129,81 @@ export function OrderTrackingView() {
     navigate(`/rastreo/${cleanId}`, { replace: true });
   };
 
+  const selectOrderFromList = (orderId) => {
+    setSearchId(orderId);
+    setCurrentOrderId(orderId);
+    navigate(`/rastreo/${orderId}`, { replace: true });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const filteredOrders = statusFilter === 'TODOS'
+    ? allOrders
+    : allOrders.filter((o) => mapStatusToIndex(o.status) === Number(statusFilter));
+
   const currentStepIndex = order ? mapStatusToIndex(order.status) : 0;
 
   return (
-    <div className="container py-5" style={{ maxWidth: '850px' }}>
-      {/* Encabezado */}
+    <div className="container py-4" style={{ maxWidth: '1000px' }}>
+      {/* ENCABEZADO */}
       <div className="text-center mb-4">
         <h2 className="fw-bold text-dark">
           <i className="bi bi-geo-alt-fill text-danger me-2"></i>
-          Rastrea tu Pedido en Tiempo Real
+          {isAdmin ? 'Panel General de Pedidos y Rastreo' : 'Rastrea tu Pedido en Tiempo Real'}
         </h2>
-        <p className="text-muted">Ingresa el código de tu orden para ver el estado de tu arreglo floral</p>
+        <p className="text-muted">
+          {isAdmin
+            ? 'Visualiza el estado de todas las órdenes del sistema ordenadas cronológicamente.'
+            : 'Ingresa el código de tu orden para ver el estado de tu arreglo floral'}
+        </p>
       </div>
 
-      {/* Formulario de Búsqueda */}
+      {/* BUSCADOR DE ORDEN */}
       <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
         <form onSubmit={handleSearch} className="d-flex gap-2">
           <input
             type="text"
             className="form-control form-control-lg rounded-pill px-4 fs-6"
-            placeholder="Ej: 6RYVP o ID completo de tu orden..."
+            placeholder="Ej: Qaq3Zs2sSf7lYetn8s3R o ID de orden..."
             value={searchId}
             onChange={(e) => setSearchId(e.target.value)}
           />
-          <button type="submit" className="btn btn-danger btn-lg rounded-pill px-4 fw-bold fs-6">
-            Rastrear
+          <button type="submit" className="btn btn-danger btn-lg rounded-pill px-4 fw-bold fs-6 text-nowrap">
+            <i className="bi bi-search me-1"></i> Rastrear
           </button>
         </form>
       </div>
 
-      {/* Estado Carga */}
-      {loading && (
-        <div className="text-center py-5">
+      {/* ESTADO DE DETALLE DE LA ORDEN SELECCIONADA */}
+      {loadingOrder && (
+        <div className="text-center py-4">
           <div className="spinner-border text-danger" role="status"></div>
-          <p className="mt-2 text-muted">Consultando estado en tiempo real...</p>
+          <p className="mt-2 text-muted">Cargando información del pedido...</p>
         </div>
       )}
 
-      {/* Error / No Encontrado */}
-      {error && !loading && (
-        <div className="alert alert-warning text-center rounded-3 shadow-sm border-0 py-4">
-          <i className="bi bi-exclamation-triangle-fill fs-3 text-warning d-block mb-2"></i>
-          {error}
+      {orderError && !loadingOrder && (
+        <div className="alert alert-warning text-center rounded-3 shadow-sm border-0 py-3 mb-4">
+          <i className="bi bi-exclamation-triangle-fill fs-4 text-warning d-block mb-1"></i>
+          {orderError}
         </div>
       )}
 
-      {/* Detalle del Pedido y Progreso */}
-      {order && !loading && (
-        <div className="bg-white rounded-4 shadow-sm p-4 border">
-          <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom">
+      {order && !loadingOrder && (
+        <div className="bg-white rounded-4 shadow-sm p-4 border mb-5">
+          <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-2">
             <div>
               <span className="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle mb-1">
-                Orden Registrada
+                Detalle de Pedido
               </span>
-              <h4 className="fw-bold mb-0">Pedido #{order.id.slice(-6).toUpperCase()}</h4>
+              <h4 className="fw-bold mb-0">Pedido #{order.id}</h4>
             </div>
             <div className="text-end">
-              <small className="text-muted d-block">Estado actual:</small>
-              <span className="fw-bold text-success fs-5">
-                {STEPS[currentStepIndex]?.label || order.status}
-              </span>
+              <small className="text-muted d-block mb-1">Estado actual:</small>
+              {getStatusBadge(order.status)}
             </div>
           </div>
 
-          {/* Línea de Tiempo / Progress Tracker */}
+          {/* LÍNEA DE TIEMPO / TIMELINE */}
           <div className="py-4 position-relative px-2">
             <div className="row g-2 text-center position-relative" style={{ zIndex: 1 }}>
               {STEPS.map((step, idx) => {
@@ -182,12 +246,12 @@ export function OrderTrackingView() {
             </div>
           </div>
 
-          {/* Resumen de Productos */}
+          {/* RESUMEN DE PRODUCTOS */}
           <div className="bg-light rounded-3 p-3 mt-4">
             <h6 className="fw-bold mb-3 text-secondary">Resumen del Pedido:</h6>
             <div className="d-flex flex-column gap-2">
               {order.items?.map((item, idx) => (
-                <div key={idx} className="d-flex justify-content-between align-items-center bg-white p-2 rounded border-sm">
+                <div key={idx} className="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
                   <div className="d-flex align-items-center gap-2">
                     {item.image && (
                       <img
@@ -210,10 +274,94 @@ export function OrderTrackingView() {
             </div>
 
             <div className="d-flex justify-content-between align-items-center fw-bold mt-3 pt-2 border-top">
-              <span>Total Pagado:</span>
+              <span>Total Orden:</span>
               <span className="text-danger fs-5">${order.total?.toLocaleString('es-CO')}</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* SECCIÓN ADMINISTRADOR: LISTADO COMPLETO DE PEDIDOS */}
+      {isAdmin && (
+        <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mt-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <h5 className="fw-bold mb-0 text-dark">
+              <i className="bi bi-list-stars text-danger me-2"></i>
+              Historial General de Pedidos ({allOrders.length})
+            </h5>
+
+            {/* FILTRO POR ESTADO */}
+            <div className="d-flex gap-1 overflow-auto py-1">
+              <button
+                className={`btn btn-sm ${statusFilter === 'TODOS' ? 'btn-danger fw-bold' : 'btn-outline-secondary'} rounded-pill px-3`}
+                onClick={() => setStatusFilter('TODOS')}
+              >
+                Todos
+              </button>
+              {STEPS.map((step, idx) => (
+                <button
+                  key={step.key}
+                  className={`btn btn-sm ${statusFilter === String(idx) ? 'btn-danger fw-bold' : 'btn-outline-secondary'} rounded-pill px-3 text-nowrap`}
+                  onClick={() => setStatusFilter(String(idx))}
+                >
+                  {step.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loadingAll ? (
+            <div className="text-center py-4">
+              <div className="spinner-border text-danger spinner-border-sm me-2"></div>
+              <span className="text-muted">Cargando lista de pedidos...</span>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="text-center py-4 bg-light rounded-3">
+              <p className="text-muted mb-0">No se encontraron pedidos registrados en este estado.</p>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>ID Pedido</th>
+                    <th>Productos</th>
+                    <th>Total</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrders.map((ord) => (
+                    <tr key={ord.id} className={currentOrderId === ord.id ? 'table-active' : ''}>
+                      <td>
+                        <span className="fw-bold font-monospace text-dark">
+                          #{ord.id}
+                        </span>
+                      </td>
+                      <td>
+                        <small className="d-block text-truncate" style={{ maxWidth: '250px' }}>
+                          {ord.items?.map((it) => `${it.quantity}x ${it.title || it.name}`).join(', ')}
+                        </small>
+                      </td>
+                      <td className="fw-bold text-danger">
+                        ${ord.total?.toLocaleString('es-CO')}
+                      </td>
+                      <td>{getStatusBadge(ord.status)}</td>
+                      <td>
+                        <button
+                          className="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold"
+                          onClick={() => selectOrderFromList(ord.id)}
+                        >
+                          Ver Rastreo
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
