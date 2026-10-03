@@ -5,14 +5,31 @@ import { subscribeToProducts } from '../services/productsService';
 
 export function ClientView() {
   const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    return JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
+  });
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [loading, setLoading] = useState(true);
 
-  // Escuchar productos en tiempo real desde Firebase
+  // Escuchar cambios en el carrito (incluyendo desde ProductDetailView)
+  useEffect(() => {
+    const syncCart = () => {
+      const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
+      setCart(savedCart);
+    };
+
+    window.addEventListener('cartUpdated', syncCart);
+    return () => window.removeEventListener('cartUpdated', syncCart);
+  }, []);
+
+  // Guardar cambios del carrito local
+  const updateCart = (newCart) => {
+    setCart(newCart);
+    localStorage.setItem('floristeria_cart', JSON.stringify(newCart));
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeToProducts((data) => {
-      // Mapear los datos de Firebase al formato del cliente
       const mappedProducts = data.map((item) => ({
         id: item.id,
         name: item.title || item.name || 'Sin Nombre',
@@ -31,21 +48,20 @@ export function ClientView() {
   }, []);
 
   const addToCart = (product) => {
-    setCart((prevCart) => {
-      const existing = prevCart.find((item) => item.id === product.id);
-      if (existing) {
-        return prevCart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prevCart, { ...product, quantity: 1 }];
-    });
+    const existing = cart.find((item) => item.id === product.id);
+    let updated;
+    if (existing) {
+      updated = cart.map((item) =>
+        item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+      );
+    } else {
+      updated = [...cart, { ...product, quantity: 1 }];
+    }
+    updateCart(updated);
   };
 
   const removeFromCart = (productId) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+    updateCart(cart.filter((item) => item.id !== productId));
   };
 
   const filteredProducts = selectedCategory === 'Todos'
@@ -53,25 +69,21 @@ export function ClientView() {
     : products.filter((p) => p.category === selectedCategory);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
   return (
     <div className="container py-4">
       <div className="row g-4">
-        {/* Sección de Catálogo de Productos */}
+        {/* Catálogo */}
         <div className="col-lg-8">
           <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
 
-          {/* Filtros por Categoría */}
           <div className="d-flex flex-wrap gap-2 mb-4">
             {categories.map((cat) => (
               <button
                 key={cat}
                 className={`btn btn-sm ${
-                  selectedCategory === cat
-                    ? 'btn-danger fw-bold'
-                    : 'btn-outline-danger'
+                  selectedCategory === cat ? 'btn-danger fw-bold' : 'btn-outline-danger'
                 } rounded-pill px-3`}
                 onClick={() => setSelectedCategory(cat)}
               >
@@ -80,7 +92,6 @@ export function ClientView() {
             ))}
           </div>
 
-          {/* Estado de Carga */}
           {loading ? (
             <div className="text-center py-5">
               <div className="spinner-border text-danger" role="status"></div>
@@ -91,7 +102,6 @@ export function ClientView() {
               <p className="text-muted mb-0">No hay productos disponibles en esta categoría.</p>
             </div>
           ) : (
-            /* Grilla de Productos */
             <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
               {filteredProducts.map((p) => (
                 <div className="col" key={p.id}>
@@ -127,7 +137,7 @@ export function ClientView() {
           )}
         </div>
 
-        {/* Sección del Carrito de Compras */}
+        {/* Carrito */}
         <div className="col-lg-4">
           <div className="card border-0 shadow-sm rounded-3 p-3 sticky-top" style={{ top: '80px' }}>
             <h4 className="fw-bold mb-3">Carrito de Compras</h4>
@@ -154,7 +164,7 @@ export function ClientView() {
                         </div>
                       </div>
                       <button
-                        className="btn btn-sm btn-link text-danger p-0 ms-2"
+                        className="btn btn-sm btn-link text-danger p-0 ms-2 text-decoration-none fw-bold"
                         onClick={() => removeFromCart(item.id)}
                       >
                         ✕

@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { subscribeToProducts } from '../services/productsService';
 
-export function ProductDetailView({ onAddToCart }) {
+export function ProductDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [added, setAdded] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeToProducts((products) => {
@@ -45,7 +46,7 @@ export function ProductDetailView({ onAddToCart }) {
     return (
       <div className="container text-center py-5">
         <h4>Producto no encontrado</h4>
-        <button className="btn btn-outline-danger mt-3" onClick={() => navigate('/')}>
+        <button className="btn btn-outline-danger mt-3 rounded-pill px-4" onClick={() => navigate('/')}>
           Volver a la tienda
         </button>
       </div>
@@ -53,51 +54,76 @@ export function ProductDetailView({ onAddToCart }) {
   }
 
   const handleAddToCart = () => {
-    if (onAddToCart) {
-      onAddToCart({ ...product, quantity });
+    // Leer el carrito actual guardado en localStorage
+    const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
+    const existingIndex = savedCart.findIndex((item) => item.id === product.id);
+
+    const itemToAdd = {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.images[0]
+    };
+
+    if (existingIndex > -1) {
+      savedCart[existingIndex].quantity += quantity;
+    } else {
+      savedCart.push({ ...itemToAdd, quantity });
     }
+
+    // Guardar en localStorage y despachar evento para refrescar en ClientView
+    localStorage.setItem('floristeria_cart', JSON.stringify(savedCart));
+    window.dispatchEvent(new Event('cartUpdated'));
+
+    // Feedback visual momentáneo
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
   };
 
   return (
     <div className="container py-4" style={{ maxWidth: '1000px' }}>
+      {/* Botón Volver Estilizado */}
       <button 
-        className="btn btn-link text-decoration-none text-muted mb-3 p-0"
+        className="btn btn-light shadow-sm rounded-pill px-3 py-1 mb-4 border d-inline-flex align-items-center gap-2 fw-semibold text-secondary"
         onClick={() => navigate(-1)}
+        style={{ transition: 'all 0.2s ease' }}
       >
-        <i className="bi bi-arrow-left me-1"></i> Volver
+        <span className="fs-5 lh-1">←</span>
+        <span>Volver a la tienda</span>
       </button>
 
-      <div className="row g-4 bg-white p-4 rounded-3 shadow-sm">
-        {/* Columna Izquierda: Galería de Imágenes */}
+      <div className="row g-4 bg-white p-4 rounded-4 shadow-sm border">
+        {/* Columna Izquierda: Galería */}
         <div className="col-md-6 d-flex flex-column align-items-center">
-          <div className="position-relative w-100 mb-3 text-center" style={{ minHeight: '350px' }}>
+          <div className="position-relative w-100 mb-3 text-center d-flex align-items-center justify-content-center" style={{ height: '380px' }}>
             <img
               src={product.images[selectedImageIndex]}
               alt={product.name}
-              className="img-fluid rounded-3"
-              style={{ maxHeight: '420px', objectFit: 'contain' }}
+              className="img-fluid rounded-3 shadow-sm"
+              style={{ maxHeight: '100%', objectFit: 'contain' }}
             />
 
-            {/* Flechas del carrusel si hay más de 1 imagen */}
             {product.images.length > 1 && (
               <>
                 <button
-                  className="btn btn-light position-absolute top-50 start-0 translate-middle-y rounded-circle shadow-sm"
+                  className="btn btn-white bg-white shadow position-absolute top-50 start-0 translate-middle-y rounded-circle ms-2"
                   onClick={() => setSelectedImageIndex((prev) => (prev === 0 ? product.images.length - 1 : prev - 1))}
+                  style={{ width: '38px', height: '38px' }}
                 >
-                  ❮
+                  ‹
                 </button>
                 <button
-                  className="btn btn-light position-absolute top-50 end-0 translate-middle-y rounded-circle shadow-sm"
+                  className="btn btn-white bg-white shadow position-absolute top-50 end-0 translate-middle-y rounded-circle me-2"
                   onClick={() => setSelectedImageIndex((prev) => (prev === product.images.length - 1 ? 0 : prev + 1))}
+                  style={{ width: '38px', height: '38px' }}
                 >
-                  ❯
+                  ›
                 </button>
               </>
             )}
           </div>
 
-          {/* Miniaturas de imágenes */}
+          {/* Miniaturas */}
           {product.images.length > 1 && (
             <div className="d-flex gap-2 overflow-auto w-100 justify-content-center py-2">
               {product.images.map((img, idx) => (
@@ -105,8 +131,8 @@ export function ProductDetailView({ onAddToCart }) {
                   key={idx}
                   src={img}
                   alt={`Thumb-${idx}`}
-                  className={`rounded border ${selectedImageIndex === idx ? 'border-danger border-2' : ''}`}
-                  style={{ width: '60px', height: '60px', objectFit: 'cover', cursor: 'pointer' }}
+                  className={`rounded-3 border ${selectedImageIndex === idx ? 'border-danger border-2 shadow-sm' : 'opacity-75'}`}
+                  style={{ width: '60px', height: '60px', objectFit: 'cover', cursor: 'pointer', transition: 'all 0.2s' }}
                   onClick={() => setSelectedImageIndex(idx)}
                 />
               ))}
@@ -114,11 +140,11 @@ export function ProductDetailView({ onAddToCart }) {
           )}
         </div>
 
-        {/* Columna Derecha: Detalles e Interacción */}
+        {/* Columna Derecha: Info */}
         <div className="col-md-6 d-flex flex-column justify-content-between">
           <div>
-            <h2 className="fw-bold text-dark mb-2">{product.name}</h2>
-            <h3 className="fw-bold text-danger mb-3">
+            <h2 className="fw-bold text-dark mb-1">{product.name}</h2>
+            <h3 className="fw-bold text-danger fs-2 mb-3">
               ${product.price.toLocaleString('es-CO')}
             </h3>
 
@@ -129,27 +155,29 @@ export function ProductDetailView({ onAddToCart }) {
             )}
 
             <p className="text-muted small mb-3">
-              <strong>Categoría:</strong> <span className="badge bg-light text-dark border">{product.category}</span>
+              <strong>Categoría:</strong> <span className="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle ms-1">{product.category}</span>
             </p>
 
-            <hr />
+            <hr className="my-3 opacity-25" />
 
-            <h6 className="fw-bold small">Descripción:</h6>
+            <h6 className="fw-bold text-dark small mb-1">Descripción:</h6>
             <p className="text-secondary small">{product.description}</p>
           </div>
 
-          {/* Selección de cantidad y botón Agregar */}
+          {/* Cantidad y Botón */}
           <div className="mt-4">
             <div className="mb-3">
-              <label className="form-label small fw-bold">Cantidad:</label>
-              <div className="d-flex align-items-center gap-2" style={{ maxWidth: '140px' }}>
+              <label className="form-label small fw-bold text-muted">Cantidad:</label>
+              <div className="input-group" style={{ width: '130px' }}>
                 <button 
                   className="btn btn-outline-secondary btn-sm px-3" 
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 >
                   -
                 </button>
-                <span className="fw-bold px-2">{quantity}</span>
+                <span className="form-control form-control-sm text-center fw-bold bg-white">
+                  {quantity}
+                </span>
                 <button 
                   className="btn btn-outline-secondary btn-sm px-3" 
                   onClick={() => setQuantity((q) => q + 1)}
@@ -160,10 +188,11 @@ export function ProductDetailView({ onAddToCart }) {
             </div>
 
             <button
-              className="btn btn-danger w-100 py-2 rounded-2 fw-bold text-uppercase"
+              className={`btn ${added ? 'btn-success' : 'btn-danger'} w-100 py-3 rounded-3 fw-bold text-uppercase shadow-sm d-flex align-items-center justify-content-center gap-2`}
               onClick={handleAddToCart}
+              style={{ transition: 'all 0.3s ease' }}
             >
-              <i className="bi bi-cart-plus me-2"></i> Agregar al Carrito
+              <span>{added ? '✓ ¡Agregado al Carrito!' : '🛒 Agregar al Carrito'}</span>
             </button>
           </div>
         </div>
