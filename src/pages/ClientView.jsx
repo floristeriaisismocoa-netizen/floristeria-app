@@ -1,15 +1,19 @@
 // src/pages/ClientView.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { subscribeToProducts } from '../services/productsService';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase/config'; // Asegúrate de que la ruta a tu config de Firebase sea correcta
 
 export function ClientView() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState(() => {
     return JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
   });
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Escuchar cambios en el carrito (incluyendo desde ProductDetailView)
   useEffect(() => {
@@ -22,7 +26,7 @@ export function ClientView() {
     return () => window.removeEventListener('cartUpdated', syncCart);
   }, []);
 
-  // Guardar cambios del carrito local
+  // Guardar cambios del carrito en localStorage
   const updateCart = (newCart) => {
     setCart(newCart);
     localStorage.setItem('floristeria_cart', JSON.stringify(newCart));
@@ -71,10 +75,37 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
+  // Función para procesar la compra y enviar a Taller
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+
+    setIsProcessing(true);
+    try {
+      // Guardar el pedido en la colección 'orders' o 'pedidos' de Firebase
+      await addDoc(collection(db, 'orders'), {
+        items: cart,
+        total: cartTotal,
+        status: 'en_taller', // Estado para que aparezca inmediatamente en KitchenView / Taller
+        createdAt: serverTimestamp()
+      });
+
+      // Vaciar el carrito
+      updateCart([]);
+
+      // Redireccionar a la vista del Taller
+      navigate('/taller');
+    } catch (error) {
+      console.error('Error al procesar el pedido:', error);
+      alert('Ocurrió un error al procesar el pedido. Intenta de nuevo.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="container py-4">
       <div className="row g-4">
-        {/* Catálogo */}
+        {/* Catálogo de Productos */}
         <div className="col-lg-8">
           <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
 
@@ -137,7 +168,7 @@ export function ClientView() {
           )}
         </div>
 
-        {/* Carrito */}
+        {/* Carrito de Compras */}
         <div className="col-lg-4">
           <div className="card border-0 shadow-sm rounded-3 p-3 sticky-top" style={{ top: '80px' }}>
             <h4 className="fw-bold mb-3">Carrito de Compras</h4>
@@ -180,8 +211,12 @@ export function ClientView() {
                   <span className="text-danger fs-5">${cartTotal.toLocaleString('es-CO')}</span>
                 </div>
 
-                <button className="btn btn-danger w-100 fw-bold py-2 rounded-2">
-                  Proceder al Pago
+                <button 
+                  className="btn btn-danger w-100 fw-bold py-2 rounded-2"
+                  onClick={handleCheckout}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? 'Enviando a Taller...' : 'Proceder al Pago'}
                 </button>
               </>
             )}
