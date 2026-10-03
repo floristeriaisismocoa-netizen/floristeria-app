@@ -15,7 +15,7 @@ export function ClientView() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Escuchar cambios en el carrito (sincronización con ProductDetailView)
+  // Escuchar cambios en el carrito (sincronización con otras vistas)
   useEffect(() => {
     const syncCart = () => {
       const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
@@ -75,27 +75,36 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
-  // Procesar la compra, guardar pedido en Firestore y redirigir al Taller
+  // Función para procesar el pago y crear el pedido en Firebase
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
+    console.log('--- BOTÓN PRESIONADO: INICIANDO PAGO ---');
+    if (cart.length === 0) {
+      console.log('El carrito está vacío, no se procesa la orden.');
+      return;
+    }
 
     setIsProcessing(true);
     try {
-      await addDoc(collection(db, 'orders'), {
+      console.log('Guardando orden en la colección "orders" de Firestore...', cart);
+      
+      const docRef = await addDoc(collection(db, 'orders'), {
         items: cart,
         total: cartTotal,
         status: 'en_taller',
         createdAt: serverTimestamp()
       });
 
-      // Vaciar carrito tras la compra exitosa
+      console.log('¡Orden guardada con éxito! ID:', docRef.id);
+      
+      // Vaciar carrito local
       updateCart([]);
 
-      // Redirigir automáticamente a la vista de Taller
+      // Redirección al taller
+      console.log('Redirigiendo a /taller...');
       navigate('/taller');
     } catch (error) {
-      console.error('Error al procesar el pedido:', error);
-      alert('Ocurrió un error al procesar el pedido. Intenta de nuevo.');
+      console.error('Error al procesar el pedido en Firestore:', error);
+      alert('Ocurrió un error al procesar el pedido: ' + error.message);
     } finally {
       setIsProcessing(false);
     }
@@ -113,6 +122,7 @@ export function ClientView() {
             {categories.map((cat) => (
               <button
                 key={cat}
+                type="button"
                 className={`btn btn-sm ${
                   selectedCategory === cat ? 'btn-danger fw-bold' : 'btn-outline-danger'
                 } rounded-pill px-3`}
@@ -155,6 +165,7 @@ export function ClientView() {
                         </p>
                       </div>
                       <button
+                        type="button"
                         className="btn btn-outline-danger btn-sm w-100 rounded-2 fw-bold"
                         onClick={() => addToCart(p)}
                       >
@@ -195,6 +206,7 @@ export function ClientView() {
                         </div>
                       </div>
                       <button
+                        type="button"
                         className="btn btn-sm btn-link text-danger p-0 ms-2 text-decoration-none fw-bold"
                         onClick={() => removeFromCart(item.id)}
                       >
@@ -212,6 +224,7 @@ export function ClientView() {
                 </div>
 
                 <button 
+                  type="button"
                   className="btn btn-danger w-100 fw-bold py-2 rounded-2"
                   onClick={handleCheckout}
                   disabled={isProcessing}
