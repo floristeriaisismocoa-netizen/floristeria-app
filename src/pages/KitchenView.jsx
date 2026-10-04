@@ -35,17 +35,18 @@ const buildOrderSpeechText = (order) => {
 export function KitchenView() {
   const [orders, setOrders] = useState([]);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [selectedImage, setSelectedImage] = useState(null); // Estado para imagen en pantalla grande
   const previousOrdersRef = useRef([]);
 
-  // Función de síntesis de voz dinámico (Text-to-Speech)
+  // Función de síntesis de voz dinámico
   const speakText = (text) => {
     if (!('speechSynthesis' in window)) return;
 
-    window.speechSynthesis.cancel(); // Cancelar locuciones previas retenidas
+    window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-ES';
-    utterance.rate = 0.95; // Velocidad de lectura óptima
+    utterance.rate = 0.95;
     utterance.pitch = 1.0;
 
     window.speechSynthesis.speak(utterance);
@@ -61,12 +62,10 @@ export function KitchenView() {
         (o) => o.status === 'PENDIENTE_PREPARACION'
       );
 
-      // Identificar si hay órdenes totalmente nuevas en el flujo
       const prevIds = previousOrdersRef.current.map((o) => o.id);
       const newOrders = currentPendingOrders.filter((o) => !prevIds.includes(o.id));
 
       if (previousOrdersRef.current.length > 0 && newOrders.length > 0 && audioEnabled) {
-        // Generar locución para el último pedido entrante
         const latestOrder = newOrders[0];
         const speechMessage = buildOrderSpeechText(latestOrder);
         speakText(speechMessage);
@@ -79,6 +78,7 @@ export function KitchenView() {
     return () => unsubscribe();
   }, [audioEnabled]);
 
+  // Paso 1: Taller inicia la preparación
   const handleStartPreparation = async (orderId) => {
     try {
       await updateOrderStatus(orderId, 'EN_PREPARACION');
@@ -87,11 +87,21 @@ export function KitchenView() {
     }
   };
 
+  // Paso 2: Taller termina el detalle y notifica a Domicilios
   const handleFinishPreparation = async (orderId) => {
     try {
       await updateOrderStatus(orderId, 'LISTO_PARA_ENTREGA');
     } catch (error) {
       console.error('Error al completar pedido en taller:', error);
+    }
+  };
+
+  // Paso Alternativo: Retiro en Taller / Tienda física
+  const handlePickupInStore = async (orderId) => {
+    try {
+      await updateOrderStatus(orderId, 'ENTREGADO');
+    } catch (error) {
+      console.error('Error al marcar retiro en tienda:', error);
     }
   };
 
@@ -109,13 +119,13 @@ export function KitchenView() {
 
   return (
     <div className="container-fluid py-4 bg-light min-vh-100">
+      {/* Encabezado con Control de Audio */}
       <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 pb-2 border-bottom container">
         <h2 className="fw-bold mb-2 mb-sm-0 text-dark">
           <i className="bi bi-flower1 text-danger me-2"></i>
           Taller de Arreglos - Pedidos Activos ({orders.length})
         </h2>
 
-        {/* Control interactivo del Altavoz */}
         <div className="d-flex align-items-center gap-2 bg-white p-2 px-3 rounded-pill shadow-sm border">
           <button
             className={`btn btn-sm rounded-circle ${audioEnabled ? 'btn-danger' : 'btn-outline-secondary'}`}
@@ -169,10 +179,34 @@ export function KitchenView() {
                       <ul className="list-group list-group-flush mb-3">
                         {order.items?.map((item, idx) => (
                           <li key={idx} className="list-group-item px-0 d-flex justify-content-between align-items-center">
-                            <span>
-                              <strong className="text-danger me-2">{item.quantity}x</strong>
-                              {item.title || item.name}
-                            </span>
+                            <div className="d-flex align-items-center gap-2">
+                              {item.image && (
+                                <img
+                                  src={item.image}
+                                  alt={item.title || item.name}
+                                  className="rounded border"
+                                  style={{ width: '40px', height: '40px', objectFit: 'cover', cursor: 'pointer' }}
+                                  onClick={() => setSelectedImage({ url: item.image, title: item.title || item.name })}
+                                  title="Haz clic para ver imagen en pantalla grande"
+                                />
+                              )}
+                              <div>
+                                <span className="fw-bold d-block text-dark">
+                                  <strong className="text-danger me-1">{item.quantity}x</strong>
+                                  {item.title || item.name}
+                                </span>
+                              </div>
+                            </div>
+
+                            {item.image && (
+                              <button
+                                className="btn btn-sm btn-outline-secondary rounded-circle"
+                                onClick={() => setSelectedImage({ url: item.image, title: item.title || item.name })}
+                                title="Ver imagen ampliada"
+                              >
+                                <i className="bi bi-zoom-in"></i>
+                              </button>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -195,13 +229,22 @@ export function KitchenView() {
                           Dar Recibido y Elaborar
                         </button>
                       ) : (
-                        <button 
-                          onClick={() => handleFinishPreparation(order.id)}
-                          className="btn btn-success btn-lg w-100 fw-bold shadow-sm"
-                        >
-                          <i className="bi bi-check-circle-fill me-2"></i>
-                          Pedido Listo para Entregar
-                        </button>
+                        <div className="d-flex flex-column gap-2">
+                          <button 
+                            onClick={() => handleFinishPreparation(order.id)}
+                            className="btn btn-success btn-lg w-100 fw-bold shadow-sm"
+                          >
+                            <i className="bi bi-truck me-2"></i>
+                            Listo para Domicilio
+                          </button>
+                          <button 
+                            onClick={() => handlePickupInStore(order.id)}
+                            className="btn btn-outline-dark btn-md w-100 fw-bold"
+                          >
+                            <i className="bi bi-shop me-2"></i>
+                            Retirado en Tienda / Taller
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -211,6 +254,50 @@ export function KitchenView() {
           )}
         </div>
       </div>
+
+      {/* MODAL PARA VER LA IMAGEN EN PANTALLA GRANDE */}
+      {selectedImage && (
+        <div
+          className="modal fade show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)', zIndex: 1060 }}
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content border-0 shadow-lg bg-dark text-white rounded-4 overflow-hidden">
+              <div className="modal-header border-secondary d-flex justify-content-between align-items-center p-3">
+                <h5 className="modal-title fw-bold text-white">
+                  <i className="bi bi-image me-2 text-danger"></i>
+                  {selectedImage.title}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setSelectedImage(null)}
+                ></button>
+              </div>
+              <div className="modal-body text-center p-2 bg-black">
+                <img
+                  src={selectedImage.url}
+                  alt={selectedImage.title}
+                  className="img-fluid rounded"
+                  style={{ maxHeight: '75vh', objectFit: 'contain', width: '100%' }}
+                />
+              </div>
+              <div className="modal-footer border-secondary justify-content-between">
+                <span className="small text-muted">Vista del modelo para guía de confección</span>
+                <button
+                  type="button"
+                  className="btn btn-outline-light btn-sm rounded-pill px-4"
+                  onClick={() => setSelectedImage(null)}
+                >
+                  Cerrar Vista
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
