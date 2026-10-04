@@ -7,7 +7,6 @@ export function KitchenView() {
 
   useEffect(() => {
     const unsubscribe = subscribeToOrders((data) => {
-      // Filtrar pedidos que están en espera de preparación o en elaboración en el taller
       const activeOrders = data.filter(
         (o) => o.status === 'PENDIENTE_PREPARACION' || o.status === 'EN_PREPARACION'
       );
@@ -16,21 +15,21 @@ export function KitchenView() {
     return () => unsubscribe();
   }, []);
 
-  // Marcar como Recibido / Iniciado (Pasa a: Realizando el Detalle)
+  // Paso 1: Taller inicia la preparación
   const handleStartPreparation = async (orderId) => {
     try {
       await updateOrderStatus(orderId, 'EN_PREPARACION');
     } catch (error) {
-      console.error('Error al iniciar elaboración del pedido:', error);
+      console.error('Error al iniciar elaboración:', error);
     }
   };
 
-  // Marcar como Terminado (Pasa a: En Reparto / Domicilios)
+  // Paso 2: Taller termina el detalle y notifica a Domicilios
   const handleFinishPreparation = async (orderId) => {
     try {
-      await updateOrderStatus(orderId, 'EN_CAMINO');
+      await updateOrderStatus(orderId, 'LISTO_PARA_ENTREGA');
     } catch (error) {
-      console.error('Error al completar el pedido:', error);
+      console.error('Error al completar pedido en taller:', error);
     }
   };
 
@@ -40,10 +39,7 @@ export function KitchenView() {
       if (typeof createdAt.toDate === 'function') {
         return createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
-      const dateObj = new Date(createdAt);
-      return isNaN(dateObj.getTime()) 
-        ? 'Reciente' 
-        : dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (err) {
       return 'Reciente';
     }
@@ -60,7 +56,7 @@ export function KitchenView() {
         {orders.length === 0 ? (
           <div className="col-12 text-center py-5 text-muted">
             <i className="bi bi-check-all display-1 text-success d-block mb-3"></i>
-            <h4>No hay pedidos pendientes por elaborar</h4>
+            <h4>No hay pedidos pendientes por elaborar en el taller</h4>
           </div>
         ) : (
           orders.map((order) => {
@@ -105,7 +101,6 @@ export function KitchenView() {
 
                   <div className="card-footer bg-white border-0 p-3 d-flex flex-column gap-2">
                     {!isPreparing ? (
-                      /* PASO 1: Recibir pedido e iniciar detalle */
                       <button 
                         onClick={() => handleStartPreparation(order.id)}
                         className="btn btn-primary btn-lg w-100 fw-bold shadow-sm"
@@ -114,7 +109,6 @@ export function KitchenView() {
                         Dar Recibido y Elaborar
                       </button>
                     ) : (
-                      /* PASO 2: Arreglo terminado, listo para envío */
                       <button 
                         onClick={() => handleFinishPreparation(order.id)}
                         className="btn btn-success btn-lg w-100 fw-bold shadow-sm"

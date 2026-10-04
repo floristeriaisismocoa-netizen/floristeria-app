@@ -8,7 +8,7 @@ export function DeliveryView() {
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'history'
   const [loading, setLoading] = useState(true);
 
-  // Estados para el modal/modalidad de entrega fallida
+  // Estado para desplegar motivo de entrega fallida
   const [failedNoteId, setFailedNoteId] = useState(null);
   const [reasonText, setReasonText] = useState('');
 
@@ -23,7 +23,6 @@ export function DeliveryView() {
           ...docSnap.data()
         }));
 
-        // Ordenar por fecha de creación (más recientes primero)
         ordersData.sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
 
         setOrders(ordersData);
@@ -38,36 +37,36 @@ export function DeliveryView() {
     return () => unsubscribe();
   }, []);
 
-  // 1. Recibir en Taller y Salir a Reparto
+  // Domiciliario recibe en taller y sale a reparto
   const handleStartDelivery = async (orderId) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, {
-        status: 'EN_CAMINO' // Actualiza el tracker al paso "En Reparto"
+        status: 'EN_CAMINO'
       });
     } catch (error) {
-      console.error('Error al iniciar el reparto:', error);
-      alert('No se pudo actualizar el estado a En Reparto.');
+      console.error('Error al salir a reparto:', error);
+      alert('Error al actualizar estado a En Reparto.');
     }
   };
 
-  // 2. Marcar como Entrega Exitosa
+  // Domiciliario confirma entrega exitosa
   const handleDeliverSuccess = async (orderId) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, {
-        status: 'ENTREGADO' // Pasa la orden al paso final "Entregado Exitoso"
+        status: 'ENTREGADO'
       });
     } catch (error) {
-      console.error('Error al marcar entrega exitosa:', error);
-      alert('Error al completar la entrega.');
+      console.error('Error al confirmar entrega exitosa:', error);
+      alert('Error al marcar pedido como entregado.');
     }
   };
 
-  // 3. Marcar como Entrega No Exitosa con Motivo
+  // Domiciliario confirma entrega no exitosa con motivo
   const handleDeliverFailed = async (orderId) => {
     if (!reasonText.trim()) {
-      alert('Por favor ingresa el motivo por el cual no se pudo entregar el pedido.');
+      alert('Por favor ingresa el motivo por el cual no se entregó el pedido.');
       return;
     }
 
@@ -80,18 +79,18 @@ export function DeliveryView() {
       setFailedNoteId(null);
       setReasonText('');
     } catch (error) {
-      console.error('Error al registrar novedad de entrega:', error);
+      console.error('Error al registrar novedad:', error);
       alert('Error al guardar el motivo de no entrega.');
     }
   };
 
-  // Filtrado de pedidos activos en logística (Listos en Taller o En Reparto)
+  // Pedidos pendientes de gestión logística
   const pendingOrders = orders.filter((o) => {
     const s = o.status ? o.status.toUpperCase() : '';
     return s === 'LISTO_PARA_ENTREGA' || s === 'EN_CAMINO' || s === 'EN_REPARTO';
   });
 
-  // Historial de entregas finalizadas (Exitosas o Fallidas)
+  // Historial de finalizados
   const historyOrders = orders.filter((o) => {
     const s = o.status ? o.status.toUpperCase() : '';
     return s === 'ENTREGADO' || s === 'ENTREGADO_EXITOSO' || s === 'COMPLETADO' || s === 'NO_ENTREGADO';
@@ -120,7 +119,6 @@ export function DeliveryView() {
         </h2>
       </div>
 
-      {/* Pestañas de Navegación */}
       <div className="d-flex justify-content-center mb-4">
         <div className="btn-group bg-light p-1 rounded-pill shadow-sm" role="group">
           <button
@@ -156,14 +154,14 @@ export function DeliveryView() {
           <i className="bi bi-box-seam display-3 text-muted d-block mb-3"></i>
           <h5 className="fw-bold text-secondary">
             {activeTab === 'pending'
-              ? 'No hay pedidos pendientes por recoger o repartir.'
+              ? 'No hay pedidos listos en taller ni en reparto actualmente.'
               : 'Aún no hay entregas registradas en el historial.'}
           </h5>
         </div>
       ) : (
         <div className="d-flex flex-column gap-3">
           {currentList.map((order) => {
-            const isReadyForPickup = order.status === 'LISTO_PARA_ENTREGA';
+            const isReadyInTaller = order.status === 'LISTO_PARA_ENTREGA';
             const isEnCamino = order.status === 'EN_CAMINO' || order.status === 'EN_REPARTO';
             const isDelivered = order.status === 'ENTREGADO' || order.status === 'COMPLETADO';
             const isFailed = order.status === 'NO_ENTREGADO';
@@ -178,8 +176,7 @@ export function DeliveryView() {
                     <small className="text-muted">{formatDate(order.createdAt)}</small>
                   </div>
 
-                  {/* Badges de Estado */}
-                  {isReadyForPickup && (
+                  {isReadyInTaller && (
                     <span className="badge bg-warning text-dark rounded-pill px-3 py-2 fw-semibold">
                       📦 Listo en Taller
                     </span>
@@ -191,12 +188,12 @@ export function DeliveryView() {
                   )}
                   {isDelivered && (
                     <span className="badge bg-success rounded-pill px-3 py-2 fw-semibold">
-                      ✅ Entregado Exitoso
+                      ✅ Envío Exitoso
                     </span>
                   )}
                   {isFailed && (
                     <span className="badge bg-danger rounded-pill px-3 py-2 fw-semibold">
-                      ❌ Entrega No Exitosa
+                      ❌ Envío No Exitosa
                     </span>
                   )}
                 </div>
@@ -224,7 +221,6 @@ export function DeliveryView() {
                     ))}
                   </ul>
 
-                  {/* Mostrar motivo si la entrega falló */}
                   {isFailed && order.deliveryFailureReason && (
                     <div className="alert alert-danger py-2 px-3 mt-2 rounded-3 border-0">
                       <strong className="d-block mb-1">
@@ -240,32 +236,30 @@ export function DeliveryView() {
                   </div>
                 </div>
 
-                {/* ACCIONES DEL DOMICILIARIO */}
                 <div className="card-footer bg-light p-3 border-0">
-                  {/* PASO A: El domicilio recoge en taller y sale a reparto */}
-                  {isReadyForPickup && (
+                  {/* OPCIÓN 1: Salir a Reparto */}
+                  {isReadyInTaller && (
                     <button
                       onClick={() => handleStartDelivery(order.id)}
                       className="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-3"
                     >
                       <i className="bi bi-box-arrow-up-right me-2"></i>
-                      Recibido en Taller - Salir a Reparto
+                      Recibir en Taller y Salir a Reparto
                     </button>
                   )}
 
-                  {/* PASO B: El domicilio está en reparto y decide el resultado */}
+                  {/* OPCIÓN 2: Envío Exitoso o Envío No Exitosa */}
                   {isEnCamino && (
                     <div className="d-flex flex-column gap-2">
                       {failedNoteId === order.id ? (
-                        /* Formulario para escribir motivo de fallo */
                         <div className="bg-white p-3 rounded-3 border">
                           <label className="form-label fw-bold text-danger small mb-1">
-                            Ingresa el motivo de no entrega:
+                            Ingresa el motivo por el cual no se entregó:
                           </label>
                           <textarea
                             className="form-control mb-2 fs-6"
                             rows="2"
-                            placeholder="Ej: Cliente ausente, dirección no encontrada, no contestó llamadas..."
+                            placeholder="Ej: Cliente no contesta, dirección incorrecta..."
                             value={reasonText}
                             onChange={(e) => setReasonText(e.target.value)}
                           ></textarea>
@@ -274,7 +268,7 @@ export function DeliveryView() {
                               className="btn btn-danger btn-sm w-100 fw-bold"
                               onClick={() => handleDeliverFailed(order.id)}
                             >
-                              Confirmar Entrega No Exitosa
+                              Confirmar Envío No Exitoso
                             </button>
                             <button
                               className="btn btn-outline-secondary btn-sm px-3"
@@ -288,28 +282,26 @@ export function DeliveryView() {
                           </div>
                         </div>
                       ) : (
-                        /* Botones principales de confirmación / falla */
                         <div className="d-flex flex-column flex-sm-row gap-2">
                           <button
                             onClick={() => handleDeliverSuccess(order.id)}
                             className="btn btn-success btn-lg w-100 fw-bold shadow-sm rounded-3"
                           >
                             <i className="bi bi-check-circle-fill me-2"></i>
-                            Entrega Exitosa
+                            Envío Exitoso
                           </button>
                           <button
                             onClick={() => setFailedNoteId(order.id)}
                             className="btn btn-outline-danger btn-lg w-100 fw-bold shadow-sm rounded-3"
                           >
                             <i className="bi bi-x-circle-fill me-2"></i>
-                            No Entregado
+                            Envío No Exitoso
                           </button>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* HISTORIAL: Mensajes informativos */}
                   {isDelivered && (
                     <div className="alert alert-success mb-0 py-2 text-center fw-bold rounded-3">
                       <i className="bi bi-check-circle-fill me-2"></i>
@@ -318,9 +310,9 @@ export function DeliveryView() {
                   )}
 
                   {isFailed && (
-                    <div className="alert alert-secondary mb-0 py-2 text-center fw-bold rounded-3">
-                      <i className="bi bi-info-circle-fill me-2"></i>
-                      Proceso finalizado como No Entregado
+                    <div className="alert alert-danger mb-0 py-2 text-center fw-bold rounded-3">
+                      <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                      Proceso finalizado como Envío No Exitoso
                     </div>
                   )}
                 </div>

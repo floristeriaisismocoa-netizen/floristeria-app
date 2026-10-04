@@ -5,7 +5,6 @@ import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore'
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 
-// Etapas del flujo de trabajo
 const STEPS = [
   { key: 'PROCESANDO_PAGO', label: 'Procesando Pago', icon: 'bi-credit-card' },
   { key: 'PENDIENTE_PREPARACION', label: 'Enviado a Taller', icon: 'bi-flower1' },
@@ -22,10 +21,23 @@ const mapStatusToIndex = (status) => {
   if (s === 'EN_PREPARACION' || s === 'PREPARANDO') return 2;
   if (s === 'EN_CAMINO' || s === 'LISTO_PARA_ENTREGA' || s === 'EN_REPARTO') return 3;
   if (s === 'ENTREGADO' || s === 'ENTREGADO_EXITOSO' || s === 'COMPLETADO') return 4;
+  if (s === 'NO_ENTREGADO') return 4;
   return 1;
 };
 
 const getStatusBadge = (status) => {
+  if (!status) return <span className="badge bg-secondary">Sin Estado</span>;
+  const s = status.toUpperCase();
+
+  if (s === 'NO_ENTREGADO') {
+    return (
+      <span className="badge bg-danger text-white rounded-pill px-3 py-2 fw-semibold">
+        <i className="bi bi-x-circle-fill me-1"></i>
+        Envío No Exitoso
+      </span>
+    );
+  }
+
   const idx = mapStatusToIndex(status);
   const step = STEPS[idx];
   const colors = [
@@ -35,6 +47,7 @@ const getStatusBadge = (status) => {
     'bg-primary text-white',
     'bg-success text-white'
   ];
+
   return (
     <span className={`badge ${colors[idx]} rounded-pill px-3 py-2 fw-semibold`}>
       <i className={`bi ${step.icon} me-1`}></i>
@@ -45,8 +58,6 @@ const getStatusBadge = (status) => {
 
 export function OrderTrackingView() {
   const { user, role } = useAuth();
-  
-  // 🔒 RESTRICCIÓN EXCLUSIVA: Solo el usuario administrador puede ver el panel global
   const isAdmin = Boolean(user && role === 'admin');
 
   const { orderId: urlOrderId } = useParams();
@@ -58,12 +69,10 @@ export function OrderTrackingView() {
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
 
-  // Estado para el panel exclusivo de Administrador
   const [allOrders, setAllOrders] = useState([]);
   const [loadingAll, setLoadingAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState('TODOS');
 
-  // 1. Cargar lista completa de pedidos en tiempo real SOLAMENTE si es Admin
   useEffect(() => {
     if (!isAdmin) {
       setAllOrders([]);
@@ -85,7 +94,7 @@ export function OrderTrackingView() {
         setLoadingAll(false);
       },
       (err) => {
-        console.error('Error al cargar lista global de pedidos:', err);
+        console.error('Error al cargar lista global:', err);
         setLoadingAll(false);
       }
     );
@@ -93,7 +102,6 @@ export function OrderTrackingView() {
     return () => unsubscribe();
   }, [isAdmin]);
 
-  // 2. Escuchar un pedido específico en tiempo real
   useEffect(() => {
     if (!currentOrderId) {
       setOrder(null);
@@ -117,7 +125,7 @@ export function OrderTrackingView() {
         setLoadingOrder(false);
       },
       (err) => {
-        console.error('Error al rastrear el pedido:', err);
+        console.error('Error al consultar pedido:', err);
         setOrderError('Error al consultar el pedido.');
         setLoadingOrder(false);
       }
@@ -143,13 +151,16 @@ export function OrderTrackingView() {
 
   const filteredOrders = statusFilter === 'TODOS'
     ? allOrders
-    : allOrders.filter((o) => mapStatusToIndex(o.status) === Number(statusFilter));
+    : allOrders.filter((o) => {
+        if (statusFilter === 'NO_ENTREGADO') return o.status === 'NO_ENTREGADO';
+        return mapStatusToIndex(o.status) === Number(statusFilter);
+      });
 
   const currentStepIndex = order ? mapStatusToIndex(order.status) : 0;
+  const isFailedOrder = order?.status === 'NO_ENTREGADO';
 
   return (
     <div className="container py-4" style={{ maxWidth: '1000px' }}>
-      {/* ENCABEZADO */}
       <div className="text-center mb-4">
         <h2 className="fw-bold text-dark">
           <i className="bi bi-geo-alt-fill text-danger me-2"></i>
@@ -162,7 +173,6 @@ export function OrderTrackingView() {
         </p>
       </div>
 
-      {/* BUSCADOR DE ORDEN */}
       <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
         <form onSubmit={handleSearch} className="d-flex gap-2">
           <input
@@ -178,7 +188,6 @@ export function OrderTrackingView() {
         </form>
       </div>
 
-      {/* ESTADO DE DETALLE DE LA ORDEN SELECCIONADA */}
       {loadingOrder && (
         <div className="text-center py-4">
           <div className="spinner-border text-danger" role="status"></div>
@@ -208,7 +217,6 @@ export function OrderTrackingView() {
             </div>
           </div>
 
-          {/* LÍNEA DE TIEMPO / TIMELINE */}
           <div className="py-4 position-relative px-2">
             <div className="row g-2 text-center position-relative" style={{ zIndex: 1 }}>
               {STEPS.map((step, idx) => {
@@ -219,7 +227,9 @@ export function OrderTrackingView() {
                   <div key={step.key} className="col">
                     <div
                       className={`rounded-circle mx-auto d-flex align-items-center justify-content-center shadow-sm mb-2 ${
-                        isCompleted
+                        isFailedOrder && idx === currentStepIndex
+                          ? 'bg-danger text-white'
+                          : isCompleted
                           ? 'bg-danger text-white'
                           : 'bg-light text-muted border'
                       }`}
@@ -231,7 +241,7 @@ export function OrderTrackingView() {
                         transform: isCurrent ? 'scale(1.15)' : 'scale(1)'
                       }}
                     >
-                      <i className={`bi ${step.icon}`}></i>
+                      <i className={`bi ${isFailedOrder && idx === currentStepIndex ? 'bi-x-circle-fill' : step.icon}`}></i>
                     </div>
                     <small
                       className={`d-block lh-sm ${
@@ -243,7 +253,7 @@ export function OrderTrackingView() {
                       }`}
                       style={{ fontSize: '0.78rem' }}
                     >
-                      {step.label}
+                      {isFailedOrder && idx === currentStepIndex ? 'Envío No Exitosa' : step.label}
                     </small>
                   </div>
                 );
@@ -251,7 +261,16 @@ export function OrderTrackingView() {
             </div>
           </div>
 
-          {/* RESUMEN DE PRODUCTOS */}
+          {isFailedOrder && order.deliveryFailureReason && (
+            <div className="alert alert-danger p-3 rounded-3 mb-4 border-0">
+              <strong className="d-block mb-1 fs-6">
+                <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                Novedad registrada durante la entrega:
+              </strong>
+              <p className="mb-0 fst-italic">"{order.deliveryFailureReason}"</p>
+            </div>
+          )}
+
           <div className="bg-light rounded-3 p-3 mt-4">
             <h6 className="fw-bold mb-3 text-secondary">Resumen del Pedido:</h6>
             <div className="d-flex flex-column gap-2">
@@ -286,7 +305,6 @@ export function OrderTrackingView() {
         </div>
       )}
 
-      {/* SECCIÓN EXCLUSIVA DE ADMINISTRADOR: LISTADO COMPLETO DE PEDIDOS */}
       {isAdmin && (
         <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mt-4">
           <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
@@ -295,7 +313,6 @@ export function OrderTrackingView() {
               Historial General de Pedidos ({allOrders.length})
             </h5>
 
-            {/* FILTRO POR ESTADO */}
             <div className="d-flex gap-1 overflow-auto py-1">
               <button
                 className={`btn btn-sm ${statusFilter === 'TODOS' ? 'btn-danger fw-bold' : 'btn-outline-secondary'} rounded-pill px-3`}
@@ -312,6 +329,12 @@ export function OrderTrackingView() {
                   {step.label}
                 </button>
               ))}
+              <button
+                className={`btn btn-sm ${statusFilter === 'NO_ENTREGADO' ? 'btn-danger fw-bold' : 'btn-outline-secondary'} rounded-pill px-3 text-nowrap`}
+                onClick={() => setStatusFilter('NO_ENTREGADO')}
+              >
+                Envío No Exitoso
+              </button>
             </div>
           </div>
 
