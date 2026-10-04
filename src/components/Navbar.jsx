@@ -1,3 +1,4 @@
+// src/components/Navbar.jsx
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -41,7 +42,7 @@ export function Navbar() {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
-            {/* TIENDA */}
+            {/* TIENDA / CAJA REGISTRADORA */}
             <li className="nav-item">
               <Link
                 className={`nav-link px-3 rounded-2 fw-medium ${isActive('/') && location.pathname === '/' ? 'active bg-secondary bg-opacity-25' : ''}`}
@@ -51,7 +52,7 @@ export function Navbar() {
               </Link>
             </li>
 
-            {/* RASTREAR PEDIDO (PÚBLICO PARA CLIENTES) */}
+            {/* RASTREAR PEDIDO */}
             <li className="nav-item">
               <Link
                 className={`nav-link px-3 rounded-2 fw-medium ${isActive('/rastreo') ? 'active bg-secondary bg-opacity-25 text-warning' : ''}`}
@@ -61,7 +62,7 @@ export function Navbar() {
               </Link>
             </li>
 
-            {/* TALLER */}
+            {/* TALLER (Florista, Taller, Admin) */}
             {user && (role === 'florist' || role === 'taller' || role === 'admin') && (
               <li className="nav-item">
                 <Link
@@ -73,7 +74,7 @@ export function Navbar() {
               </li>
             )}
 
-            {/* DOMICILIOS */}
+            {/* DOMICILIOS (Domicilio, Delivery, Admin) */}
             {user && (role === 'delivery' || role === 'domicilio' || role === 'admin') && (
               <li className="nav-item">
                 <Link
@@ -85,7 +86,7 @@ export function Navbar() {
               </li>
             )}
 
-            {/* ADMIN */}
+            {/* ADMIN PRODUCTOS */}
             {user && role === 'admin' && (
               <li className="nav-item">
                 <Link
@@ -98,16 +99,30 @@ export function Navbar() {
             )}
           </ul>
 
-          {/* BOTÓN SESIÓN */}
+          {/* ESTADO DE SESIÓN / ROL */}
           <div className="d-flex align-items-center gap-3">
             {user ? (
-              <button
-                onClick={handleLogout}
-                className="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 px-3 py-2 border-1 rounded-3 fw-semibold shadow-none"
-              >
-                <i className="bi bi-box-arrow-right fs-6"></i>
-                <span>Cerrar Sesión</span>
-              </button>
+              <div className="d-flex align-items-center gap-2">
+                {/* Badge con el Rol Activo */}
+                <span className={`badge rounded-pill px-3 py-2 fw-bold ${
+                  role === 'caja' || role === 'cajero'
+                    ? 'bg-success text-white'
+                    : role === 'admin'
+                    ? 'bg-primary text-white'
+                    : 'bg-secondary text-white'
+                }`}>
+                  <i className={`bi ${role === 'caja' || role === 'cajero' ? 'bi-cash-register' : 'bi-person-fill'} me-1`}></i>
+                  {role === 'caja' || role === 'cajero' ? 'Caja Registradora' : role.toUpperCase()}
+                </span>
+
+                <button
+                  onClick={handleLogout}
+                  className="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 px-3 py-2 border-1 rounded-3 fw-semibold shadow-none"
+                >
+                  <i className="bi bi-box-arrow-right fs-6"></i>
+                  <span>Cerrar Sesión</span>
+                </button>
+              </div>
             ) : (
               <Link
                 to="/login"

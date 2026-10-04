@@ -4,9 +4,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { subscribeToProducts } from '../services/productsService';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { useAuth } from '../context/AuthContext';
 
 export function ClientView() {
+  const { user, role } = useAuth();
   const navigate = useNavigate();
+
+  // Verificar si la persona autenticada tiene permisos de Cajero/Admin
+  const isCajaOrAdmin = Boolean(user && (role === 'caja' || role === 'cajero' || role === 'admin'));
+
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState(() => {
     return JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
@@ -14,6 +20,15 @@ export function ClientView() {
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Estados de la Pasarela de Pago Modal
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA'); // 'TRANSFERENCIA' | 'TARJETA' | 'EFECTIVO'
+  const [deliveryType, setDeliveryType] = useState('DOMICILIO'); // 'DOMICILIO' | 'TIENDA'
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [customNote, setCustomNote] = useState('');
 
   useEffect(() => {
     const syncCart = () => {
@@ -74,30 +89,45 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
-  const handleCheckout = async () => {
+  // Procesar la orden con la pasarela configurada
+  const handleFinalizePayment = async (e) => {
+    e.preventDefault();
     if (cart.length === 0) return;
 
     setIsProcessing(true);
     try {
-      // Guardar todos los datos incluyendo el array 'images'
       const formattedItems = cart.map(item => ({
         ...item,
         title: item.title || item.name,
         images: item.images && item.images.length > 0 ? item.images : [item.image]
       }));
 
-      const docRef = await addDoc(collection(db, 'orders'), {
+      // Determinar el estado inicial del pedido según la entrega
+      const initialStatus = 'PENDIENTE_PREPARACION';
+
+      const orderData = {
         items: formattedItems,
         total: cartTotal,
-        status: 'PENDIENTE_PREPARACION',
+        paymentMethod, // 'TRANSFERENCIA', 'TARJETA', 'EFECTIVO'
+        deliveryType,   // 'DOMICILIO', 'TIENDA'
+        customerName: customerName.trim() || 'Cliente Mostrador',
+        customerPhone: customerPhone.trim() || 'N/A',
+        deliveryAddress: deliveryType === 'DOMICILIO' ? deliveryAddress.trim() : 'Retiro Presencial en Tienda',
+        customNote: customNote.trim(),
+        status: initialStatus,
+        createdBy: user ? user.email : 'cliente_web',
+        isPhysicalStoreSale: paymentMethod === 'EFECTIVO' || deliveryType === 'TIENDA',
         createdAt: serverTimestamp()
-      });
+      };
+
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
 
       updateCart([]);
+      setShowCheckoutModal(false);
       navigate(`/rastreo/${docRef.id}`);
     } catch (error) {
-      console.error('Error al procesar el pedido:', error);
-      alert('Ocurrió un error al procesar el pedido. Intenta de nuevo.');
+      console.error('Error al procesar la compra:', error);
+      alert('Error al registrar la transacción. Intenta nuevamente.');
     } finally {
       setIsProcessing(false);
     }
@@ -108,7 +138,14 @@ export function ClientView() {
       <div className="row g-4">
         {/* Catálogo de Productos */}
         <div className="col-lg-8">
-          <h2 className="fw-bold mb-3">Catálogo de Productos</h2>
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h2 className="fw-bold mb-0">Catálogo de Productos</h2>
+            {isCajaOrAdmin && (
+              <span className="badge bg-success fs-6 px-3 py-2 rounded-pill">
+                <i className="bi bi-cash-register me-1"></i> Modo Caja Registradora
+              </span>
+            )}
+          </div>
 
           <div className="d-flex flex-wrap gap-2 mb-4">
             {categories.map((cat) => (
@@ -218,16 +255,206 @@ export function ClientView() {
                 <button 
                   type="button"
                   className="btn btn-danger w-100 fw-bold py-2 rounded-2"
-                  onClick={handleCheckout}
-                  disabled={isProcessing}
+                  onClick={() => setShowCheckoutModal(true)}
                 >
-                  {isProcessing ? 'Enviando a Taller...' : 'Proceder al Pago'}
+                  <i className="bi bi-credit-card-2-front me-2"></i>
+                  Proceder al Pago
                 </button>
               </>
             )}
           </div>
         </div>
       </div>
+
+      {/* MODAL / PASARELA DE PAGO COMPLETA */}
+      {showCheckoutModal && (
+        <div
+          className="modal fade show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1055 }}
+          onClick={() => setShowCheckoutModal(false)}
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content rounded-4 border-0 shadow-lg">
+              <div className="modal-header bg-dark text-white p-3">
+                <h5 className="modal-title fw-bold">
+                  <i className="bi bi-shield-check text-success me-2"></i>
+                  Pasarela de Pago y Datos de Entrega
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setShowCheckoutModal(false)}
+                ></button>
+              </div>
+
+              <form onSubmit={handleFinalizePayment}>
+                <div className="modal-body p-4">
+                  <div className="row g-3">
+                    {/* Sección 1: Selección del Método de Pago */}
+                    <div className="col-12">
+                      <label className="form-label fw-bold text-dark">
+                        1. Selecciona el Método de Pago:
+                      </label>
+                      <div className="row g-2">
+                        <div className="col-md-4">
+                          <button
+                            type="button"
+                            className={`btn w-100 p-3 text-start border-2 rounded-3 ${
+                              paymentMethod === 'TRANSFERENCIA' ? 'btn-outline-danger active fw-bold' : 'btn-outline-secondary'
+                            }`}
+                            onClick={() => setPaymentMethod('TRANSFERENCIA')}
+                          >
+                            <i className="bi bi-qr-code-scan fs-4 d-block mb-1"></i>
+                            <span>Transferencia Nequi / Daviplata</span>
+                          </button>
+                        </div>
+
+                        <div className="col-md-4">
+                          <button
+                            type="button"
+                            className={`btn w-100 p-3 text-start border-2 rounded-3 ${
+                              paymentMethod === 'TARJETA' ? 'btn-outline-danger active fw-bold' : 'btn-outline-secondary'
+                            }`}
+                            onClick={() => setPaymentMethod('TARJETA')}
+                          >
+                            <i className="bi bi-credit-card fs-4 d-block mb-1"></i>
+                            <span>Tarjeta Débito / Crédito</span>
+                          </button>
+                        </div>
+
+                        {/* BOTÓN EXCLUSIVO PARA CAJA / ADMIN */}
+                        {isCajaOrAdmin && (
+                          <div className="col-md-4">
+                            <button
+                              type="button"
+                              className={`btn w-100 p-3 text-start border-2 rounded-3 ${
+                                paymentMethod === 'EFECTIVO' ? 'btn-success fw-bold text-white' : 'btn-outline-success'
+                              }`}
+                              onClick={() => {
+                                setPaymentMethod('EFECTIVO');
+                                setDeliveryType('TIENDA'); // Por defecto retiro en tienda si es pago presencial
+                              }}
+                            >
+                              <i className="bi bi-cash-stack fs-4 d-block mb-1"></i>
+                              <span>Pago en Efectivo (Caja)</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sección 2: Tipo de Entrega */}
+                    <div className="col-12 mt-4">
+                      <label className="form-label fw-bold text-dark">
+                        2. Tipo de Entrega:
+                      </label>
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className={`btn rounded-pill px-4 fw-bold ${
+                            deliveryType === 'DOMICILIO' ? 'btn-danger' : 'btn-outline-secondary'
+                          }`}
+                          onClick={() => setDeliveryType('DOMICILIO')}
+                        >
+                          🛵 Envió a Domicilio
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn rounded-pill px-4 fw-bold ${
+                            deliveryType === 'TIENDA' ? 'btn-danger' : 'btn-outline-secondary'
+                          }`}
+                          onClick={() => setDeliveryType('TIENDA')}
+                        >
+                          🏪 Retiro Presencial en Tienda
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sección 3: Datos del Cliente */}
+                    <div className="col-md-6 mt-3">
+                      <label className="form-label small fw-bold">Nombre del Cliente / Destinatario:</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Ej: María Gómez"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="col-md-6 mt-3">
+                      <label className="form-label small fw-bold">Teléfono de Contacto:</label>
+                      <input
+                        type="tel"
+                        className="form-control"
+                        placeholder="Ej: 3101234567"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    {deliveryType === 'DOMICILIO' && (
+                      <div className="col-12 mt-2">
+                        <label className="form-label small fw-bold">Dirección de Entrega:</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Ej: Carrera 5 # 10-20 Barrio Centro"
+                          value={deliveryAddress}
+                          onChange={(e) => setDeliveryAddress(e.target.value)}
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div className="col-12 mt-2">
+                      <label className="form-label small fw-bold">Nota o Dedicatoria para la Tarjeta (Opcional):</label>
+                      <textarea
+                        className="form-control"
+                        rows="2"
+                        placeholder="Ej: ¡Feliz cumpleaños te desea tu familia!"
+                        value={customNote}
+                        onChange={(e) => setCustomNote(e.target.value)}
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  {/* Resumen Final */}
+                  <div className="bg-light p-3 rounded-3 mt-4 d-flex justify-content-between align-items-center">
+                    <div>
+                      <small className="text-muted d-block">Total a Pagar:</small>
+                      <span className="fs-4 fw-bold text-danger">${cartTotal.toLocaleString('es-CO')}</span>
+                    </div>
+                    <span className="badge bg-secondary px-3 py-2">
+                      Método: {paymentMethod === 'EFECTIVO' ? '💵 Efectivo en Caja' : paymentMethod === 'TARJETA' ? '💳 Tarjeta' : '📲 Transferencia'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="modal-footer bg-light p-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary rounded-3"
+                    onClick={() => setShowCheckoutModal(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className={`btn ${paymentMethod === 'EFECTIVO' ? 'btn-success' : 'btn-danger'} rounded-3 px-4 fw-bold`}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? 'Procesando Orden...' : 'Confirmar y Finalizar Pedido'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
