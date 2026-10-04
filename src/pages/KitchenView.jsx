@@ -2,22 +2,51 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { subscribeToOrders, updateOrderStatus } from '../services/ordersService';
 
+// Función para convertir números en palabras en español para la voz
+const numberToWords = (num) => {
+  const words = ['UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ'];
+  return num >= 1 && num <= 10 ? words[num - 1] : String(num);
+};
+
+// Generar el texto dinámico personalizado para el lector de voz
+const buildOrderSpeechText = (order) => {
+  if (!order || !order.items || order.items.length === 0) {
+    return 'NUEVO PEDIDO PARA ELABORAR';
+  }
+
+  const itemsFormatted = order.items.map((item) => {
+    const qtyWord = numberToWords(item.quantity || 1);
+    const name = (item.title || item.name || 'PRODUCTO').toUpperCase();
+    return `${qtyWord} ${name}`;
+  });
+
+  let itemsText = '';
+  if (itemsFormatted.length === 1) {
+    itemsText = itemsFormatted[0];
+  } else if (itemsFormatted.length === 2) {
+    itemsText = itemsFormatted.join(' Y ');
+  } else {
+    itemsText = itemsFormatted.slice(0, -1).join(', ') + ' Y ' + itemsFormatted[itemsFormatted.length - 1];
+  }
+
+  return `NUEVO PEDIDO PARA ELABORAR ${itemsText}`;
+};
+
 export function KitchenView() {
   const [orders, setOrders] = useState([]);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const previousPendingCount = useRef(null);
+  const previousOrdersRef = useRef([]);
 
-  // Función de síntesis de voz (Text-to-Speech)
-  const speakNewOrderAlert = () => {
+  // Función de síntesis de voz dinámico (Text-to-Speech)
+  const speakText = (text) => {
     if (!('speechSynthesis' in window)) return;
 
-    // Cancelar locuciones previas si se acumulan
-    window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel(); // Cancelar locuciones previas retenidas
 
-    const utterance = new SpeechSynthesisUtterance('NUEVO PEDIDO PARA ELABORAR');
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-ES';
-    utterance.rate = 1.0;  // Velocidad
-    utterance.pitch = 1.1; // Tono
+    utterance.rate = 0.95; // Velocidad de lectura óptima
+    utterance.pitch = 1.0;
 
     window.speechSynthesis.speak(utterance);
   };
@@ -28,29 +57,28 @@ export function KitchenView() {
         (o) => o.status === 'PENDIENTE_PREPARACION' || o.status === 'EN_PREPARACION'
       );
 
-      // Contar específicamente cuántos están esperando por ser recibidos
-      const currentPendingCount = activeOrders.filter(
+      const currentPendingOrders = activeOrders.filter(
         (o) => o.status === 'PENDIENTE_PREPARACION'
-      ).length;
+      );
 
-      // Si la cantidad de pedidos pendientes aumentó respecto a la última lectura, reproducir alerta
-      if (
-        previousPendingCount.current !== null &&
-        currentPendingCount > previousPendingCount.current &&
-        audioEnabled
-      ) {
-        speakNewOrderAlert();
+      // Identificar si hay órdenes totalmente nuevas en el flujo
+      const prevIds = previousOrdersRef.current.map((o) => o.id);
+      const newOrders = currentPendingOrders.filter((o) => !prevIds.includes(o.id));
+
+      if (previousOrdersRef.current.length > 0 && newOrders.length > 0 && audioEnabled) {
+        // Generar locución para el último pedido entrante
+        const latestOrder = newOrders[0];
+        const speechMessage = buildOrderSpeechText(latestOrder);
+        speakText(speechMessage);
       }
 
-      // Actualizar la referencia de conteo
-      previousPendingCount.current = currentPendingCount;
+      previousOrdersRef.current = currentPendingOrders;
       setOrders(activeOrders);
     });
 
     return () => unsubscribe();
   }, [audioEnabled]);
 
-  // Paso 1: Taller inicia la preparación
   const handleStartPreparation = async (orderId) => {
     try {
       await updateOrderStatus(orderId, 'EN_PREPARACION');
@@ -59,7 +87,6 @@ export function KitchenView() {
     }
   };
 
-  // Paso 2: Taller termina el detalle y notifica a Domicilios
   const handleFinishPreparation = async (orderId) => {
     try {
       await updateOrderStatus(orderId, 'LISTO_PARA_ENTREGA');
@@ -82,22 +109,22 @@ export function KitchenView() {
 
   return (
     <div className="container-fluid py-4 bg-light min-vh-100">
-      {/* Encabezado con Control de Audio */}
       <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 pb-2 border-bottom container">
         <h2 className="fw-bold mb-2 mb-sm-0 text-dark">
           <i className="bi bi-flower1 text-danger me-2"></i>
           Taller de Arreglos - Pedidos Activos ({orders.length})
         </h2>
 
-        {/* Botón para probar/activar las alertas de voz */}
+        {/* Control interactivo del Altavoz */}
         <div className="d-flex align-items-center gap-2 bg-white p-2 px-3 rounded-pill shadow-sm border">
           <button
             className={`btn btn-sm rounded-circle ${audioEnabled ? 'btn-danger' : 'btn-outline-secondary'}`}
             style={{ width: '36px', height: '36px' }}
             onClick={() => {
-              setAudioEnabled(!audioEnabled);
-              if (!audioEnabled) {
-                speakNewOrderAlert(); // Probar voz al activar
+              const newState = !audioEnabled;
+              setAudioEnabled(newState);
+              if (newState) {
+                speakText('ALERTA DE VOZ ACTIVADA EN TALLER');
               }
             }}
             title={audioEnabled ? 'Desactivar voz de alerta' : 'Activar voz de alerta'}
@@ -105,7 +132,7 @@ export function KitchenView() {
             <i className={`bi ${audioEnabled ? 'bi-volume-up-fill' : 'bi-volume-mute-fill'}`}></i>
           </button>
           <span className="small fw-bold text-secondary">
-            {audioEnabled ? 'Alerta de voz activa' : 'Alerta de voz silenciada'}
+            {audioEnabled ? 'Voz inteligente activa' : 'Voz silenciada'}
           </span>
         </div>
       </div>
