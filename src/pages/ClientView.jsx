@@ -38,9 +38,10 @@ export function ClientView() {
         price: Number(item.price) || 0,
         category: item.category || 'Ramos',
         description: item.description || '',
+        images: item.images && item.images.length > 0 ? item.images : (item.image ? [item.image] : []),
         image: item.images && item.images.length > 0 
           ? item.images[0] 
-          : 'https://via.placeholder.com/300?text=Sin+Imagen'
+          : (item.image || 'https://via.placeholder.com/300?text=Sin+Imagen')
       }));
       setProducts(mappedProducts);
       setLoading(false);
@@ -78,25 +79,21 @@ export function ClientView() {
 
     setIsProcessing(true);
     try {
+      // Guardar todos los datos incluyendo el array 'images'
       const formattedItems = cart.map(item => ({
         ...item,
-        title: item.title || item.name
+        title: item.title || item.name,
+        images: item.images && item.images.length > 0 ? item.images : [item.image]
       }));
 
-      // Guardar orden enviada directamente a PENDIENTE_PREPARACION para que llegue al taller
       const docRef = await addDoc(collection(db, 'orders'), {
         items: formattedItems,
         total: cartTotal,
-        status: 'PENDIENTE_PREPARACION', // 👈 Llega inmediatamente al Taller
+        status: 'PENDIENTE_PREPARACION',
         createdAt: serverTimestamp()
       });
 
       updateCart([]);
-
-      // Guardar la última orden en localStorage para consultar rápidamente
-      localStorage.setItem('last_order_id', docRef.id);
-
-      // Redirigir a la vista de rastreo del cliente
       navigate(`/rastreo/${docRef.id}`);
     } catch (error) {
       console.error('Error al procesar el pedido:', error);

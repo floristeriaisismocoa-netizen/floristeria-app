@@ -1,14 +1,14 @@
 // src/pages/KitchenView.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { subscribeToOrders, updateOrderStatus } from '../services/ordersService';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
-// Convertir números en palabras en español para la locución
 const numberToWords = (num) => {
   const words = ['UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ'];
   return num >= 1 && num <= 10 ? words[num - 1] : String(num);
 };
 
-// Generar el texto dinámico para el lector de voz
 const buildOrderSpeechText = (order) => {
   if (!order || !order.items || order.items.length === 0) {
     return 'NUEVO PEDIDO PARA ELABORAR';
@@ -35,12 +35,10 @@ const buildOrderSpeechText = (order) => {
 export function KitchenView() {
   const [orders, setOrders] = useState([]);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  
-  // Estado para el modal de imágenes (Soporta múltiples fotos/carrusel)
-  const [modalData, setModalData] = useState(null); // { images: [], title: '', activeIndex: 0 }
+  const [modalData, setModalData] = useState(null);
+  const [loadingImages, setLoadingImages] = useState(false);
   const previousOrdersRef = useRef([]);
 
-  // Lector de voz
   const speakText = (text) => {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
@@ -79,22 +77,43 @@ export function KitchenView() {
     return () => unsubscribe();
   }, [audioEnabled]);
 
-  // Obtener todas las imágenes posibles de un item (array de imágenes o imagen única)
-  const getItemImages = (item) => {
-    if (item.images && Array.isArray(item.images) && item.images.length > 0) {
-      return item.images;
+  // Obtener la galería completa de un producto
+  const openImageGallery = async (item) => {
+    const title = item.title || item.name || 'Detalle del Arreglo';
+    
+    // Si la orden ya trae el array completo de imágenes
+    if (item.images && Array.isArray(item.images) && item.images.length > 1) {
+      setModalData({
+        images: item.images,
+        title,
+        activeIndex: 0
+      });
+      return;
     }
-    if (item.image) {
-      return [item.image];
-    }
-    return ['https://via.placeholder.com/400?text=Sin+Imagen'];
-  };
 
-  const openImageGallery = (item) => {
-    const imagesList = getItemImages(item);
+    // Si solo trae una imagen o es un pedido previo, buscar en Firestore
+    setLoadingImages(true);
+    let allImages = item.images && item.images.length > 0 ? [...item.images] : (item.image ? [item.image] : []);
+
+    if (item.id) {
+      try {
+        const productRef = doc(db, 'products', item.id);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+          const productData = productSnap.data();
+          if (productData.images && Array.isArray(productData.images) && productData.images.length > 0) {
+            allImages = productData.images;
+          }
+        }
+      } catch (err) {
+        console.error('Error al consultar imágenes secundarias:', err);
+      }
+    }
+
+    setLoadingImages(false);
     setModalData({
-      images: imagesList,
-      title: item.title || item.name || 'Detalle del Arreglo',
+      images: allImages.length > 0 ? allImages : ['https://via.placeholder.com/400?text=Sin+Imagen'],
+      title,
       activeIndex: 0
     });
   };
@@ -153,7 +172,6 @@ export function KitchenView() {
 
   return (
     <div className="container-fluid py-4 bg-light min-vh-100">
-      {/* Encabezado con Control de Audio */}
       <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 pb-2 border-bottom container">
         <h2 className="fw-bold mb-2 mb-sm-0 text-dark">
           <i className="bi bi-flower1 text-danger me-2"></i>
@@ -206,49 +224,39 @@ export function KitchenView() {
                       <div className="d-flex justify-content-between align-items-center mb-3">
                         <h6 className="fw-bold mb-0">Productos a preparar:</h6>
                         <span className={`badge ${isPreparing ? 'bg-info text-dark' : 'bg-secondary'}`}>
-                          {isPreparing ? '✂️ Realizando el Detalle' : '⏳ Pendiente Recibir'}
+                          {isPreparing ? '✂️️ Realizando el Detalle' : '⏳ Pendiente Recibir'}
                         </span>
                       </div>
 
                       <ul className="list-group list-group-flush mb-3">
-                        {order.items?.map((item, idx) => {
-                          const imagesList = getItemImages(item);
-
-                          return (
-                            <li key={idx} className="list-group-item px-0 d-flex justify-content-between align-items-center">
-                              <div className="d-flex align-items-center gap-2">
-                                <img
-                                  src={imagesList[0]}
-                                  alt={item.title || item.name}
-                                  className="rounded border"
-                                  style={{ width: '42px', height: '42px', objectFit: 'cover', cursor: 'pointer' }}
-                                  onClick={() => openImageGallery(item)}
-                                  title="Haz clic para ver el carrusel completo de imágenes"
-                                />
-                                <div>
-                                  <span className="fw-bold d-block text-dark">
-                                    <strong className="text-danger me-1">{item.quantity}x</strong>
-                                    {item.title || item.name}
-                                  </span>
-                                  {imagesList.length > 1 && (
-                                    <small className="text-muted fw-bold" style={{ fontSize: '0.75rem' }}>
-                                      <i className="bi bi-images me-1"></i>
-                                      {imagesList.length} fotos
-                                    </small>
-                                  )}
-                                </div>
-                              </div>
-
-                              <button
-                                className="btn btn-sm btn-outline-danger rounded-circle"
+                        {order.items?.map((item, idx) => (
+                          <li key={idx} className="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <div className="d-flex align-items-center gap-2">
+                              <img
+                                src={item.image || (item.images && item.images[0])}
+                                alt={item.title || item.name}
+                                className="rounded border"
+                                style={{ width: '42px', height: '42px', objectFit: 'cover', cursor: 'pointer' }}
                                 onClick={() => openImageGallery(item)}
-                                title="Ver galería en pantalla grande"
-                              >
-                                <i className="bi bi-zoom-in"></i>
-                              </button>
-                            </li>
-                          );
-                        })}
+                                title="Haz clic para ver el carrusel completo"
+                              />
+                              <div>
+                                <span className="fw-bold d-block text-dark">
+                                  <strong className="text-danger me-1">{item.quantity}x</strong>
+                                  {item.title || item.name}
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              className="btn btn-sm btn-outline-danger rounded-circle"
+                              onClick={() => openImageGallery(item)}
+                              title="Ver carrusel completo de imágenes"
+                            >
+                              <i className="bi bi-zoom-in"></i>
+                            </button>
+                          </li>
+                        ))}
                       </ul>
 
                       {order.customNote && (
@@ -295,7 +303,7 @@ export function KitchenView() {
         </div>
       </div>
 
-      {/* MODAL / VISOR CON CARRUSEL DE PANTALLA COMPLETA */}
+      {/* MODAL / VISOR CON CARRUSEL COMPLETO */}
       {modalData && (
         <div
           className="modal fade show d-block"
@@ -305,7 +313,6 @@ export function KitchenView() {
         >
           <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content border-0 shadow-lg bg-dark text-white rounded-4 overflow-hidden">
-              {/* Encabezado del Modal */}
               <div className="modal-header border-secondary d-flex justify-content-between align-items-center p-3">
                 <div>
                   <h5 className="modal-title fw-bold text-white mb-0">
@@ -325,7 +332,6 @@ export function KitchenView() {
                 ></button>
               </div>
 
-              {/* Visor de Imagen Principal */}
               <div className="modal-body text-center p-2 bg-black position-relative d-flex align-items-center justify-content-center" style={{ minHeight: '380px' }}>
                 {modalData.images.length > 1 && (
                   <button
@@ -357,7 +363,7 @@ export function KitchenView() {
                 )}
               </div>
 
-              {/* Tiras de Miniaturas (si hay más de 1 imagen) */}
+              {/* Tiras de Miniaturas */}
               {modalData.images.length > 1 && (
                 <div className="bg-dark p-2 border-top border-secondary d-flex justify-content-center gap-2 overflow-auto">
                   {modalData.images.map((imgUrl, idx) => (
@@ -373,7 +379,6 @@ export function KitchenView() {
                 </div>
               )}
 
-              {/* Pie del Modal */}
               <div className="modal-footer border-secondary justify-content-between">
                 <span className="small text-muted">
                   Guía visual completa para confección en taller
