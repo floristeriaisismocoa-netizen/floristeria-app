@@ -4,12 +4,13 @@ import { subscribeToOrders, updateOrderStatus } from '../services/ordersService'
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
+// Convertir números mayores a 1 en palabras en español
 const numberToWords = (num) => {
-  const words = ['UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ'];
-  return num >= 1 && num <= 10 ? words[num - 1] : String(num);
+  const words = ['DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ'];
+  return num >= 2 && num <= 10 ? words[num - 2] : String(num);
 };
 
-// Extractor robusto de nombres de productos para el lector de voz
+// Extractor dinámico de texto de voz sin la palabra "UN"
 const buildOrderSpeechText = (order) => {
   if (!order || !order.items || !Array.isArray(order.items) || order.items.length === 0) {
     return 'NUEVO PEDIDO PARA ELABORAR';
@@ -17,9 +18,16 @@ const buildOrderSpeechText = (order) => {
 
   const itemsFormatted = order.items.map((item) => {
     const qty = Number(item.quantity) || 1;
-    const qtyWord = numberToWords(qty);
     const rawName = item.title || item.name || item.productName || 'ARREGLO FLORAL';
-    return `${qtyWord} ${rawName.toUpperCase()}`;
+    const cleanName = rawName.toUpperCase();
+
+    // Si la cantidad es 1, omitimos la palabra "UN"
+    if (qty === 1) {
+      return cleanName;
+    }
+    
+    // Si la cantidad es mayor a 1, agregamos el número en palabras
+    return `${numberToWords(qty)} ${cleanName}`;
   });
 
   let itemsText = '';
@@ -91,7 +99,6 @@ export function KitchenView() {
     requestWakeLock();
 
     const unsubscribe = subscribeToOrders((data) => {
-      // Filtrar todas las órdenes activas en el taller
       const activeOrders = data.filter((o) => {
         const s = o.status ? o.status.toUpperCase() : '';
         return s === 'PENDIENTE_PREPARACION' || s === 'EN_PREPARACION';
@@ -287,7 +294,7 @@ export function KitchenView() {
                       <div className="d-flex justify-content-between align-items-center mb-3">
                         <h6 className="fw-bold mb-0">Productos a preparar:</h6>
                         <span className={`badge ${isPreparing ? 'bg-info text-dark' : 'bg-secondary'}`}>
-                          {isPreparing ? '✂️️ Realizando el Detalle' : '⏳ Pendiente Recibir'}
+                          {isPreparing ? '✂ Realizando el Detalle' : '⏳ Pendiente Recibir'}
                         </span>
                       </div>
 
