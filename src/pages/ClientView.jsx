@@ -83,6 +83,27 @@ export function ClientView() {
     updateCart(cart.filter((item) => item.id !== productId));
   };
 
+  // Abrir la pasarela cerrando primero el menú del carrito para liberar el foco del teclado
+  const handleOpenCheckout = () => {
+    const offcanvasElement = document.getElementById('cartOffcanvas');
+    if (offcanvasElement) {
+      // 1. Intentar cerrar via API de Bootstrap
+      if (window.bootstrap && window.bootstrap.Offcanvas) {
+        const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(offcanvasElement) || new window.bootstrap.Offcanvas(offcanvasElement);
+        bsOffcanvas.hide();
+      }
+      
+      // 2. Ocultar elemento directamente por selector si aplica
+      const closeBtn = offcanvasElement.querySelector('.btn-close');
+      if (closeBtn) {
+        closeBtn.click();
+      }
+    }
+
+    // Mostrar el modal de la pasarela
+    setShowCheckoutModal(true);
+  };
+
   const filteredProducts = selectedCategory === 'Todos'
     ? products
     : products.filter((p) => p.category === selectedCategory);
@@ -128,13 +149,6 @@ export function ClientView() {
 
       updateCart([]);
       setShowCheckoutModal(false);
-
-      // Cerrar Offcanvas mediante atributo o backdrop si esta abierto
-      const offcanvasElement = document.getElementById('cartOffcanvas');
-      if (offcanvasElement && window.bootstrap) {
-        const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(offcanvasElement);
-        if (bsOffcanvas) bsOffcanvas.hide();
-      }
 
       setCustomerName('');
       setCustomerPhone('');
@@ -295,7 +309,7 @@ export function ClientView() {
                 <button
                   type="button"
                   className="btn btn-danger w-100 fw-bold py-3 rounded-3 shadow-sm fs-6"
-                  onClick={() => setShowCheckoutModal(true)}
+                  onClick={handleOpenCheckout}
                 >
                   <i className="bi bi-credit-card-2-front me-2"></i>
                   Proceder al Pago
@@ -311,7 +325,7 @@ export function ClientView() {
         <div
           className="modal fade show d-block"
           tabIndex="-1"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1060 }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1070 }}
           onClick={() => setShowCheckoutModal(false)}
         >
           <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
