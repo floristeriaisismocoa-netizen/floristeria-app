@@ -45,8 +45,10 @@ const getStatusBadge = (status) => {
 
 export function OrderTrackingView() {
   const { user, role } = useAuth();
-  const isAdmin = user && (role === 'admin' || role === 'florist' || role === 'taller' || role === 'delivery');
   
+  // 🔒 RESTRICCIÓN EXCLUSIVA: Solo el usuario administrador puede ver el panel global
+  const isAdmin = Boolean(user && role === 'admin');
+
   const { orderId: urlOrderId } = useParams();
   const navigate = useNavigate();
 
@@ -56,14 +58,17 @@ export function OrderTrackingView() {
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
 
-  // Estado para el panel global de Administrador
+  // Estado para el panel exclusivo de Administrador
   const [allOrders, setAllOrders] = useState([]);
   const [loadingAll, setLoadingAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState('TODOS');
 
-  // 1. Cargar lista completa de pedidos en tiempo real si es Admin
+  // 1. Cargar lista completa de pedidos en tiempo real SOLAMENTE si es Admin
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      setAllOrders([]);
+      return;
+    }
 
     setLoadingAll(true);
     const ordersRef = collection(db, 'orders');
@@ -281,7 +286,7 @@ export function OrderTrackingView() {
         </div>
       )}
 
-      {/* SECCIÓN ADMINISTRADOR: LISTADO COMPLETO DE PEDIDOS */}
+      {/* SECCIÓN EXCLUSIVA DE ADMINISTRADOR: LISTADO COMPLETO DE PEDIDOS */}
       {isAdmin && (
         <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mt-4">
           <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
