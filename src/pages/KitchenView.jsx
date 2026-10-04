@@ -2,13 +2,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { subscribeToOrders, updateOrderStatus } from '../services/ordersService';
 
-// Función para convertir números en palabras en español para la voz
+// Convertir números en palabras en español para la locución
 const numberToWords = (num) => {
   const words = ['UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ'];
   return num >= 1 && num <= 10 ? words[num - 1] : String(num);
 };
 
-// Generar el texto dinámico personalizado para el lector de voz
+// Generar el texto dinámico para el lector de voz
 const buildOrderSpeechText = (order) => {
   if (!order || !order.items || order.items.length === 0) {
     return 'NUEVO PEDIDO PARA ELABORAR';
@@ -35,13 +35,14 @@ const buildOrderSpeechText = (order) => {
 export function KitchenView() {
   const [orders, setOrders] = useState([]);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const [selectedImage, setSelectedImage] = useState(null); // Estado para imagen en pantalla grande
+  
+  // Estado para el modal de imágenes (Soporta múltiples fotos/carrusel)
+  const [modalData, setModalData] = useState(null); // { images: [], title: '', activeIndex: 0 }
   const previousOrdersRef = useRef([]);
 
-  // Función de síntesis de voz dinámico
+  // Lector de voz
   const speakText = (text) => {
     if (!('speechSynthesis' in window)) return;
-
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -78,7 +79,42 @@ export function KitchenView() {
     return () => unsubscribe();
   }, [audioEnabled]);
 
-  // Paso 1: Taller inicia la preparación
+  // Obtener todas las imágenes posibles de un item (array de imágenes o imagen única)
+  const getItemImages = (item) => {
+    if (item.images && Array.isArray(item.images) && item.images.length > 0) {
+      return item.images;
+    }
+    if (item.image) {
+      return [item.image];
+    }
+    return ['https://via.placeholder.com/400?text=Sin+Imagen'];
+  };
+
+  const openImageGallery = (item) => {
+    const imagesList = getItemImages(item);
+    setModalData({
+      images: imagesList,
+      title: item.title || item.name || 'Detalle del Arreglo',
+      activeIndex: 0
+    });
+  };
+
+  const handleNextImage = () => {
+    if (!modalData) return;
+    setModalData((prev) => ({
+      ...prev,
+      activeIndex: (prev.activeIndex + 1) % prev.images.length
+    }));
+  };
+
+  const handlePrevImage = () => {
+    if (!modalData) return;
+    setModalData((prev) => ({
+      ...prev,
+      activeIndex: (prev.activeIndex - 1 + prev.images.length) % prev.images.length
+    }));
+  };
+
   const handleStartPreparation = async (orderId) => {
     try {
       await updateOrderStatus(orderId, 'EN_PREPARACION');
@@ -87,7 +123,6 @@ export function KitchenView() {
     }
   };
 
-  // Paso 2: Taller termina el detalle y notifica a Domicilios
   const handleFinishPreparation = async (orderId) => {
     try {
       await updateOrderStatus(orderId, 'LISTO_PARA_ENTREGA');
@@ -96,7 +131,6 @@ export function KitchenView() {
     }
   };
 
-  // Paso Alternativo: Retiro en Taller / Tienda física
   const handlePickupInStore = async (orderId) => {
     try {
       await updateOrderStatus(orderId, 'ENTREGADO');
@@ -177,38 +211,44 @@ export function KitchenView() {
                       </div>
 
                       <ul className="list-group list-group-flush mb-3">
-                        {order.items?.map((item, idx) => (
-                          <li key={idx} className="list-group-item px-0 d-flex justify-content-between align-items-center">
-                            <div className="d-flex align-items-center gap-2">
-                              {item.image && (
+                        {order.items?.map((item, idx) => {
+                          const imagesList = getItemImages(item);
+
+                          return (
+                            <li key={idx} className="list-group-item px-0 d-flex justify-content-between align-items-center">
+                              <div className="d-flex align-items-center gap-2">
                                 <img
-                                  src={item.image}
+                                  src={imagesList[0]}
                                   alt={item.title || item.name}
                                   className="rounded border"
-                                  style={{ width: '40px', height: '40px', objectFit: 'cover', cursor: 'pointer' }}
-                                  onClick={() => setSelectedImage({ url: item.image, title: item.title || item.name })}
-                                  title="Haz clic para ver imagen en pantalla grande"
+                                  style={{ width: '42px', height: '42px', objectFit: 'cover', cursor: 'pointer' }}
+                                  onClick={() => openImageGallery(item)}
+                                  title="Haz clic para ver el carrusel completo de imágenes"
                                 />
-                              )}
-                              <div>
-                                <span className="fw-bold d-block text-dark">
-                                  <strong className="text-danger me-1">{item.quantity}x</strong>
-                                  {item.title || item.name}
-                                </span>
+                                <div>
+                                  <span className="fw-bold d-block text-dark">
+                                    <strong className="text-danger me-1">{item.quantity}x</strong>
+                                    {item.title || item.name}
+                                  </span>
+                                  {imagesList.length > 1 && (
+                                    <small className="text-muted fw-bold" style={{ fontSize: '0.75rem' }}>
+                                      <i className="bi bi-images me-1"></i>
+                                      {imagesList.length} fotos
+                                    </small>
+                                  )}
+                                </div>
                               </div>
-                            </div>
 
-                            {item.image && (
                               <button
-                                className="btn btn-sm btn-outline-secondary rounded-circle"
-                                onClick={() => setSelectedImage({ url: item.image, title: item.title || item.name })}
-                                title="Ver imagen ampliada"
+                                className="btn btn-sm btn-outline-danger rounded-circle"
+                                onClick={() => openImageGallery(item)}
+                                title="Ver galería en pantalla grande"
                               >
                                 <i className="bi bi-zoom-in"></i>
                               </button>
-                            )}
-                          </li>
-                        ))}
+                            </li>
+                          );
+                        })}
                       </ul>
 
                       {order.customNote && (
@@ -255,43 +295,95 @@ export function KitchenView() {
         </div>
       </div>
 
-      {/* MODAL PARA VER LA IMAGEN EN PANTALLA GRANDE */}
-      {selectedImage && (
+      {/* MODAL / VISOR CON CARRUSEL DE PANTALLA COMPLETA */}
+      {modalData && (
         <div
           className="modal fade show d-block"
           tabIndex="-1"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)', zIndex: 1060 }}
-          onClick={() => setSelectedImage(null)}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.88)', zIndex: 1060 }}
+          onClick={() => setModalData(null)}
         >
           <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content border-0 shadow-lg bg-dark text-white rounded-4 overflow-hidden">
+              {/* Encabezado del Modal */}
               <div className="modal-header border-secondary d-flex justify-content-between align-items-center p-3">
-                <h5 className="modal-title fw-bold text-white">
-                  <i className="bi bi-image me-2 text-danger"></i>
-                  {selectedImage.title}
-                </h5>
+                <div>
+                  <h5 className="modal-title fw-bold text-white mb-0">
+                    <i className="bi bi-flower2 me-2 text-danger"></i>
+                    {modalData.title}
+                  </h5>
+                  {modalData.images.length > 1 && (
+                    <small className="text-muted">
+                      Foto {modalData.activeIndex + 1} de {modalData.images.length}
+                    </small>
+                  )}
+                </div>
                 <button
                   type="button"
                   className="btn-close btn-close-white"
-                  onClick={() => setSelectedImage(null)}
+                  onClick={() => setModalData(null)}
                 ></button>
               </div>
-              <div className="modal-body text-center p-2 bg-black">
+
+              {/* Visor de Imagen Principal */}
+              <div className="modal-body text-center p-2 bg-black position-relative d-flex align-items-center justify-content-center" style={{ minHeight: '380px' }}>
+                {modalData.images.length > 1 && (
+                  <button
+                    className="btn btn-dark bg-opacity-75 text-white position-absolute start-0 ms-3 rounded-circle p-2 fs-4 shadow border"
+                    style={{ zIndex: 10 }}
+                    onClick={handlePrevImage}
+                    title="Anterior foto"
+                  >
+                    <i className="bi bi-chevron-left"></i>
+                  </button>
+                )}
+
                 <img
-                  src={selectedImage.url}
-                  alt={selectedImage.title}
+                  src={modalData.images[modalData.activeIndex]}
+                  alt={`${modalData.title} ${modalData.activeIndex + 1}`}
                   className="img-fluid rounded"
-                  style={{ maxHeight: '75vh', objectFit: 'contain', width: '100%' }}
+                  style={{ maxHeight: '70vh', objectFit: 'contain', width: '100%' }}
                 />
+
+                {modalData.images.length > 1 && (
+                  <button
+                    className="btn btn-dark bg-opacity-75 text-white position-absolute end-0 me-3 rounded-circle p-2 fs-4 shadow border"
+                    style={{ zIndex: 10 }}
+                    onClick={handleNextImage}
+                    title="Siguiente foto"
+                  >
+                    <i className="bi bi-chevron-right"></i>
+                  </button>
+                )}
               </div>
+
+              {/* Tiras de Miniaturas (si hay más de 1 imagen) */}
+              {modalData.images.length > 1 && (
+                <div className="bg-dark p-2 border-top border-secondary d-flex justify-content-center gap-2 overflow-auto">
+                  {modalData.images.map((imgUrl, idx) => (
+                    <img
+                      key={idx}
+                      src={imgUrl}
+                      alt={`Miniatura ${idx + 1}`}
+                      className={`rounded border ${modalData.activeIndex === idx ? 'border-danger border-3' : 'border-secondary opacity-50'}`}
+                      style={{ width: '60px', height: '60px', objectFit: 'cover', cursor: 'pointer' }}
+                      onClick={() => setModalData((prev) => ({ ...prev, activeIndex: idx }))}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Pie del Modal */}
               <div className="modal-footer border-secondary justify-content-between">
-                <span className="small text-muted">Vista del modelo para guía de confección</span>
+                <span className="small text-muted">
+                  Guía visual completa para confección en taller
+                </span>
                 <button
                   type="button"
-                  className="btn btn-outline-light btn-sm rounded-pill px-4"
-                  onClick={() => setSelectedImage(null)}
+                  className="btn btn-outline-light btn-sm rounded-pill px-4 fw-bold"
+                  onClick={() => setModalData(null)}
                 >
-                  Cerrar Vista
+                  Cerrar Visor
                 </button>
               </div>
             </div>
