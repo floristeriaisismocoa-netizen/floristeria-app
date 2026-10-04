@@ -10,7 +10,6 @@ export function ClientView() {
   const { user, role } = useAuth();
   const navigate = useNavigate();
 
-  // Verificar si la persona autenticada tiene permisos de Cajero/Admin
   const isCajaOrAdmin = Boolean(user && (role === 'caja' || role === 'cajero' || role === 'admin'));
 
   const [products, setProducts] = useState([]);
@@ -21,10 +20,10 @@ export function ClientView() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Estados de la Pasarela de Pago Modal
+  // Estados del Modal de Checkout
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA'); // 'TRANSFERENCIA' | 'TARJETA' | 'EFECTIVO'
-  const [deliveryType, setDeliveryType] = useState('DOMICILIO'); // 'DOMICILIO' | 'TIENDA'
+  const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
+  const [deliveryType, setDeliveryType] = useState('DOMICILIO');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -49,7 +48,8 @@ export function ClientView() {
     const unsubscribe = subscribeToProducts((data) => {
       const mappedProducts = data.map((item) => ({
         id: item.id,
-        name: item.title || item.name || 'Sin Nombre',
+        name: item.title || item.name || 'Arreglo Floral',
+        title: item.title || item.name || 'Arreglo Floral',
         price: Number(item.price) || 0,
         category: item.category || 'Ramos',
         description: item.description || '',
@@ -89,34 +89,39 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
-  // Procesar la orden con la pasarela configurada
+  // Finalizar venta de Caja / Cliente Web
   const handleFinalizePayment = async (e) => {
     e.preventDefault();
     if (cart.length === 0) return;
 
     setIsProcessing(true);
     try {
-      const formattedItems = cart.map(item => ({
-        ...item,
-        title: item.title || item.name,
-        images: item.images && item.images.length > 0 ? item.images : [item.image]
-      }));
-
-      // Determinar el estado inicial del pedido según la entrega
-      const initialStatus = 'PENDIENTE_PREPARACION';
+      // Formato homogéneo para garantizar que la voz lea los nombres
+      const formattedItems = cart.map((item) => {
+        const itemTitle = item.title || item.name || 'Arreglo Floral';
+        return {
+          id: item.id || '',
+          title: itemTitle,
+          name: itemTitle,
+          quantity: Number(item.quantity) || 1,
+          price: Number(item.price) || 0,
+          image: item.image || (item.images && item.images[0]) || '',
+          images: item.images && item.images.length > 0 ? item.images : [item.image]
+        };
+      });
 
       const orderData = {
         items: formattedItems,
         total: cartTotal,
-        paymentMethod, // 'TRANSFERENCIA', 'TARJETA', 'EFECTIVO'
-        deliveryType,   // 'DOMICILIO', 'TIENDA'
-        customerName: customerName.trim() || 'Cliente Mostrador',
+        paymentMethod,
+        deliveryType,
+        customerName: customerName.trim() || (isCajaOrAdmin ? 'Cliente Tienda Física' : 'Cliente Web'),
         customerPhone: customerPhone.trim() || 'N/A',
         deliveryAddress: deliveryType === 'DOMICILIO' ? deliveryAddress.trim() : 'Retiro Presencial en Tienda',
         customNote: customNote.trim(),
-        status: initialStatus,
+        status: 'PENDIENTE_PREPARACION', // 👈 Estado obligatorio para sonar en el taller
         createdBy: user ? user.email : 'cliente_web',
-        isPhysicalStoreSale: paymentMethod === 'EFECTIVO' || deliveryType === 'TIENDA',
+        isPhysicalStoreSale: Boolean(isCajaOrAdmin),
         createdAt: serverTimestamp()
       };
 
@@ -124,10 +129,17 @@ export function ClientView() {
 
       updateCart([]);
       setShowCheckoutModal(false);
+
+      // Limpiar formulario
+      setCustomerName('');
+      setCustomerPhone('');
+      setDeliveryAddress('');
+      setCustomNote('');
+
       navigate(`/rastreo/${docRef.id}`);
     } catch (error) {
-      console.error('Error al procesar la compra:', error);
-      alert('Error al registrar la transacción. Intenta nuevamente.');
+      console.error('Error al procesar la venta:', error);
+      alert('Error al registrar la transacción en la base de datos.');
     } finally {
       setIsProcessing(false);
     }
@@ -142,7 +154,7 @@ export function ClientView() {
             <h2 className="fw-bold mb-0">Catálogo de Productos</h2>
             {isCajaOrAdmin && (
               <span className="badge bg-success fs-6 px-3 py-2 rounded-pill">
-                <i className="bi bi-cash-register me-1"></i> Modo Caja Registradora
+                <i className="bi bi-cash-register me-1"></i> Punto de Venta (Caja)
               </span>
             )}
           </div>
@@ -266,7 +278,7 @@ export function ClientView() {
         </div>
       </div>
 
-      {/* MODAL / PASARELA DE PAGO COMPLETA */}
+      {/* Pasarela de Pago */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"
@@ -291,7 +303,6 @@ export function ClientView() {
               <form onSubmit={handleFinalizePayment}>
                 <div className="modal-body p-4">
                   <div className="row g-3">
-                    {/* Sección 1: Selección del Método de Pago */}
                     <div className="col-12">
                       <label className="form-label fw-bold text-dark">
                         1. Selecciona el Método de Pago:
@@ -323,7 +334,6 @@ export function ClientView() {
                           </button>
                         </div>
 
-                        {/* BOTÓN EXCLUSIVO PARA CAJA / ADMIN */}
                         {isCajaOrAdmin && (
                           <div className="col-md-4">
                             <button
@@ -333,7 +343,7 @@ export function ClientView() {
                               }`}
                               onClick={() => {
                                 setPaymentMethod('EFECTIVO');
-                                setDeliveryType('TIENDA'); // Por defecto retiro en tienda si es pago presencial
+                                setDeliveryType('TIENDA');
                               }}
                             >
                               <i className="bi bi-cash-stack fs-4 d-block mb-1"></i>
@@ -344,7 +354,6 @@ export function ClientView() {
                       </div>
                     </div>
 
-                    {/* Sección 2: Tipo de Entrega */}
                     <div className="col-12 mt-4">
                       <label className="form-label fw-bold text-dark">
                         2. Tipo de Entrega:
@@ -371,16 +380,14 @@ export function ClientView() {
                       </div>
                     </div>
 
-                    {/* Sección 3: Datos del Cliente */}
                     <div className="col-md-6 mt-3">
                       <label className="form-label small fw-bold">Nombre del Cliente / Destinatario:</label>
                       <input
                         type="text"
                         className="form-control"
-                        placeholder="Ej: María Gómez"
+                        placeholder="Ej: Cliente Mostrador / María Gómez"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
-                        required
                       />
                     </div>
 
@@ -392,7 +399,6 @@ export function ClientView() {
                         placeholder="Ej: 3101234567"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        required
                       />
                     </div>
 
@@ -415,21 +421,20 @@ export function ClientView() {
                       <textarea
                         className="form-control"
                         rows="2"
-                        placeholder="Ej: ¡Feliz cumpleaños te desea tu familia!"
+                        placeholder="Ej: ¡Feliz aniversario de parte de la familia!"
                         value={customNote}
                         onChange={(e) => setCustomNote(e.target.value)}
                       ></textarea>
                     </div>
                   </div>
 
-                  {/* Resumen Final */}
                   <div className="bg-light p-3 rounded-3 mt-4 d-flex justify-content-between align-items-center">
                     <div>
-                      <small className="text-muted d-block">Total a Pagar:</small>
+                      <small className="text-muted d-block">Total Cobrado:</small>
                       <span className="fs-4 fw-bold text-danger">${cartTotal.toLocaleString('es-CO')}</span>
                     </div>
                     <span className="badge bg-secondary px-3 py-2">
-                      Método: {paymentMethod === 'EFECTIVO' ? '💵 Efectivo en Caja' : paymentMethod === 'TARJETA' ? '💳 Tarjeta' : '📲 Transferencia'}
+                      Método: {paymentMethod === 'EFECTIVO' ? '💵 Efectivo (Caja)' : paymentMethod === 'TARJETA' ? '💳 Tarjeta' : '📲 Transferencia'}
                     </span>
                   </div>
                 </div>
@@ -447,7 +452,7 @@ export function ClientView() {
                     className={`btn ${paymentMethod === 'EFECTIVO' ? 'btn-success' : 'btn-danger'} rounded-3 px-4 fw-bold`}
                     disabled={isProcessing}
                   >
-                    {isProcessing ? 'Procesando Orden...' : 'Confirmar y Finalizar Pedido'}
+                    {isProcessing ? 'Enviando a Taller...' : 'Confirmar Venta y Enviar a Taller'}
                   </button>
                 </div>
               </form>

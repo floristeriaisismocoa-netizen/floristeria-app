@@ -9,15 +9,17 @@ const numberToWords = (num) => {
   return num >= 1 && num <= 10 ? words[num - 1] : String(num);
 };
 
+// Extractor robusto de nombres de productos para el lector de voz
 const buildOrderSpeechText = (order) => {
-  if (!order || !order.items || order.items.length === 0) {
+  if (!order || !order.items || !Array.isArray(order.items) || order.items.length === 0) {
     return 'NUEVO PEDIDO PARA ELABORAR';
   }
 
   const itemsFormatted = order.items.map((item) => {
-    const qtyWord = numberToWords(item.quantity || 1);
-    const name = (item.title || item.name || 'PRODUCTO').toUpperCase();
-    return `${qtyWord} ${name}`;
+    const qty = Number(item.quantity) || 1;
+    const qtyWord = numberToWords(qty);
+    const rawName = item.title || item.name || item.productName || 'ARREGLO FLORAL';
+    return `${qtyWord} ${rawName.toUpperCase()}`;
   });
 
   let itemsText = '';
@@ -37,12 +39,11 @@ export function KitchenView() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [modalData, setModalData] = useState(null);
   const [wakeLockActive, setWakeLockActive] = useState(false);
-  
+
   const previousOrdersRef = useRef([]);
   const wakeLockRef = useRef(null);
   const silentAudioRef = useRef(null);
 
-  // Solicitud de bloqueo de suspensión de pantalla (Screen Wake Lock)
   const requestWakeLock = async () => {
     try {
       if ('wakeLock' in navigator) {
@@ -54,11 +55,10 @@ export function KitchenView() {
         });
       }
     } catch (err) {
-      console.warn('Wake Lock no soportado o denegado por el navegador:', err);
+      console.warn('Wake Lock no soportado o restringido:', err);
     }
   };
 
-  // Escuchar eventos de visibilidad para rearmar el Wake Lock si el usuario regresa a la pestaña
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible' && audioEnabled) {
@@ -70,13 +70,11 @@ export function KitchenView() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [audioEnabled]);
 
-  // Manejo de reproducción de síntesis de voz
   const speakText = (text) => {
     if (!('speechSynthesis' in window)) return;
 
     window.speechSynthesis.cancel();
 
-    // Reproducir pulso de audio background
     if (silentAudioRef.current) {
       silentAudioRef.current.play().catch(() => {});
     }
@@ -89,24 +87,25 @@ export function KitchenView() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Inicialización de escuchas de Firebase y alertas
   useEffect(() => {
-    // Activar bloqueo de suspensión al cargar la pantalla del Taller
     requestWakeLock();
 
     const unsubscribe = subscribeToOrders((data) => {
-      const activeOrders = data.filter(
-        (o) => o.status === 'PENDIENTE_PREPARACION' || o.status === 'EN_PREPARACION'
-      );
+      // Filtrar todas las órdenes activas en el taller
+      const activeOrders = data.filter((o) => {
+        const s = o.status ? o.status.toUpperCase() : '';
+        return s === 'PENDIENTE_PREPARACION' || s === 'EN_PREPARACION';
+      });
 
-      const currentPendingOrders = activeOrders.filter(
-        (o) => o.status === 'PENDIENTE_PREPARACION'
-      );
+      const currentPendingOrders = activeOrders.filter((o) => {
+        const s = o.status ? o.status.toUpperCase() : '';
+        return s === 'PENDIENTE_PREPARACION';
+      });
 
       const prevIds = previousOrdersRef.current.map((o) => o.id);
       const newOrders = currentPendingOrders.filter((o) => !prevIds.includes(o.id));
 
-      if (previousOrdersRef.current.length > 0 && newOrders.length > 0 && audioEnabled) {
+      if (previousOrdersRef.current.length >= 0 && newOrders.length > 0 && audioEnabled) {
         const latestOrder = newOrders[0];
         const speechMessage = buildOrderSpeechText(latestOrder);
         speakText(speechMessage);
@@ -140,7 +139,7 @@ export function KitchenView() {
 
   const openImageGallery = async (item) => {
     const title = item.title || item.name || 'Detalle del Arreglo';
-    
+
     if (item.images && Array.isArray(item.images) && item.images.length > 1) {
       setModalData({
         images: item.images,
@@ -228,14 +227,12 @@ export function KitchenView() {
 
   return (
     <div className="container-fluid py-4 bg-light min-vh-100">
-      {/* Pista de audio silenciosa Keep-Alive */}
       <audio
         ref={silentAudioRef}
         loop
         src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
       />
 
-      {/* Encabezado con Control de Voz y Pantalla Activa */}
       <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 pb-2 border-bottom container">
         <h2 className="fw-bold mb-2 mb-sm-0 text-dark">
           <i className="bi bi-flower1 text-danger me-2"></i>
@@ -247,7 +244,7 @@ export function KitchenView() {
             className={`btn btn-sm rounded-circle ${audioEnabled ? 'btn-danger' : 'btn-outline-secondary'}`}
             style={{ width: '36px', height: '36px' }}
             onClick={toggleAudioAndWakeLock}
-            title={audioEnabled ? 'Desactivar voz y bloqueo' : 'Activar voz y pantalla siempre encendida'}
+            title={audioEnabled ? 'Desactivar voz de alerta' : 'Activar voz de alerta'}
           >
             <i className={`bi ${audioEnabled ? 'bi-volume-up-fill' : 'bi-volume-mute-fill'}`}></i>
           </button>
@@ -258,7 +255,7 @@ export function KitchenView() {
             {audioEnabled && (
               <small className="text-success fw-semibold" style={{ fontSize: '0.7rem' }}>
                 <i className="bi bi-brightness-high-fill me-1"></i>
-                {wakeLockActive ? 'Pantalla en modo Always-On' : 'Mantener navegador abierto'}
+                {wakeLockActive ? 'Pantalla Always-On' : 'Mantener navegador abierto'}
               </small>
             )}
           </div>
@@ -290,7 +287,7 @@ export function KitchenView() {
                       <div className="d-flex justify-content-between align-items-center mb-3">
                         <h6 className="fw-bold mb-0">Productos a preparar:</h6>
                         <span className={`badge ${isPreparing ? 'bg-info text-dark' : 'bg-secondary'}`}>
-                          {isPreparing ? '✂️ Realizando el Detalle' : '⏳ Pendiente Recibir'}
+                          {isPreparing ? '✂️️ Realizando el Detalle' : '⏳ Pendiente Recibir'}
                         </span>
                       </div>
 
@@ -304,7 +301,7 @@ export function KitchenView() {
                                 className="rounded border"
                                 style={{ width: '42px', height: '42px', objectFit: 'cover', cursor: 'pointer' }}
                                 onClick={() => openImageGallery(item)}
-                                title="Haz clic para ver el carrusel completo"
+                                title="Ver carrusel de imágenes"
                               />
                               <div>
                                 <span className="fw-bold d-block text-dark">
@@ -317,7 +314,7 @@ export function KitchenView() {
                             <button
                               className="btn btn-sm btn-outline-danger rounded-circle"
                               onClick={() => openImageGallery(item)}
-                              title="Ver carrusel completo de imágenes"
+                              title="Ver imágenes"
                             >
                               <i className="bi bi-zoom-in"></i>
                             </button>
@@ -369,7 +366,6 @@ export function KitchenView() {
         </div>
       </div>
 
-      {/* Modal con carrusel completo */}
       {modalData && (
         <div
           className="modal fade show d-block"
@@ -444,7 +440,7 @@ export function KitchenView() {
 
               <div className="modal-footer border-secondary justify-content-between">
                 <span className="small text-muted">
-                  Guía visual completa para confección en taller
+                  Guía visual para confección en taller
                 </span>
                 <button
                   type="button"
