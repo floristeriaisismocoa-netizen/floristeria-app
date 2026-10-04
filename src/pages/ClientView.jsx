@@ -20,7 +20,7 @@ export function ClientView() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Estados del Modal de Checkout
+  // Estados Checkout Modal
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
@@ -42,6 +42,7 @@ export function ClientView() {
   const updateCart = (newCart) => {
     setCart(newCart);
     localStorage.setItem('floristeria_cart', JSON.stringify(newCart));
+    window.dispatchEvent(new Event('cartUpdated'));
   };
 
   useEffect(() => {
@@ -89,14 +90,12 @@ export function ClientView() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
 
-  // Finalizar venta de Caja / Cliente Web
   const handleFinalizePayment = async (e) => {
     e.preventDefault();
     if (cart.length === 0) return;
 
     setIsProcessing(true);
     try {
-      // Formato homogéneo para garantizar que la voz lea los nombres
       const formattedItems = cart.map((item) => {
         const itemTitle = item.title || item.name || 'Arreglo Floral';
         return {
@@ -119,7 +118,7 @@ export function ClientView() {
         customerPhone: customerPhone.trim() || 'N/A',
         deliveryAddress: deliveryType === 'DOMICILIO' ? deliveryAddress.trim() : 'Retiro Presencial en Tienda',
         customNote: customNote.trim(),
-        status: 'PENDIENTE_PREPARACION', // 👈 Estado obligatorio para sonar en el taller
+        status: 'PENDIENTE_PREPARACION',
         createdBy: user ? user.email : 'cliente_web',
         isPhysicalStoreSale: Boolean(isCajaOrAdmin),
         createdAt: serverTimestamp()
@@ -130,7 +129,13 @@ export function ClientView() {
       updateCart([]);
       setShowCheckoutModal(false);
 
-      // Limpiar formulario
+      // Cerrar Offcanvas mediante atributo o backdrop si esta abierto
+      const offcanvasElement = document.getElementById('cartOffcanvas');
+      if (offcanvasElement && window.bootstrap) {
+        const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(offcanvasElement);
+        if (bsOffcanvas) bsOffcanvas.hide();
+      }
+
       setCustomerName('');
       setCustomerPhone('');
       setDeliveryAddress('');
@@ -146,144 +151,167 @@ export function ClientView() {
   };
 
   return (
-    <div className="container py-4">
-      <div className="row g-4">
-        {/* Catálogo de Productos */}
-        <div className="col-lg-8">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h2 className="fw-bold mb-0">Catálogo de Productos</h2>
-            {isCajaOrAdmin && (
-              <span className="badge bg-success fs-6 px-3 py-2 rounded-pill">
-                <i className="bi bi-cash-register me-1"></i> Punto de Venta (Caja)
-              </span>
-            )}
-          </div>
-
-          <div className="d-flex flex-wrap gap-2 mb-4">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className={`btn btn-sm ${
-                  selectedCategory === cat ? 'btn-danger fw-bold' : 'btn-outline-danger'
-                } rounded-pill px-3`}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="text-center py-5">
-              <div className="spinner-border text-danger" role="status"></div>
-              <p className="mt-2 text-muted">Cargando catálogo...</p>
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-5 bg-light rounded-3">
-              <p className="text-muted mb-0">No hay productos disponibles en esta categoría.</p>
-            </div>
-          ) : (
-            <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
-              {filteredProducts.map((p) => (
-                <div className="col" key={p.id}>
-                  <div className="card h-100 border-0 shadow-sm rounded-3 overflow-hidden">
-                    <Link to={`/producto/${p.id}`}>
-                      <img
-                        src={p.image}
-                        alt={p.name}
-                        className="card-img-top"
-                        style={{ height: '180px', objectFit: 'cover', cursor: 'pointer' }}
-                      />
-                    </Link>
-                    <div className="card-body d-flex flex-column justify-content-between p-3">
-                      <div>
-                        <Link to={`/producto/${p.id}`} className="text-decoration-none text-dark">
-                          <h6 className="fw-bold mb-1">{p.name}</h6>
-                        </Link>
-                        <p className="text-danger fw-bold fs-5 mb-2">
-                          ${p.price.toLocaleString('es-CO')}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger btn-sm w-100 rounded-2 fw-bold"
-                        onClick={() => addToCart(p)}
-                      >
-                        <i className="bi bi-cart-plus me-1"></i> Agregar al Carrito
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+    <div className="container-fluid px-4 py-4">
+      {/* Encabezado del Catálogo */}
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+          <h2 className="fw-bold mb-0 text-dark">Catálogo de Productos</h2>
+          <p className="text-muted small mb-0">Selecciona tus arreglos florales y detalles favoritos</p>
         </div>
 
-        {/* Carrito de Compras */}
-        <div className="col-lg-4">
-          <div className="card border-0 shadow-sm rounded-3 p-3 sticky-top" style={{ top: '80px' }}>
-            <h4 className="fw-bold mb-3">Carrito de Compras</h4>
+        {isCajaOrAdmin && (
+          <span className="badge bg-success fs-6 px-3 py-2 rounded-pill shadow-sm">
+            <i className="bi bi-cash-register me-1"></i> Punto de Venta (Caja Registradora)
+          </span>
+        )}
+      </div>
 
-            {cart.length === 0 ? (
-              <p className="text-muted small mb-0">El carrito está vacío</p>
-            ) : (
-              <>
-                <div className="d-flex flex-column gap-2 mb-3 max-vh-50 overflow-auto">
-                  {cart.map((item) => (
-                    <div key={item.id} className="d-flex align-items-center justify-content-between bg-light p-2 rounded">
-                      <div className="d-flex align-items-center gap-2">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="rounded"
-                          style={{ width: '40px', height: '40px', objectFit: 'cover' }}
-                        />
-                        <div>
-                          <p className="mb-0 small fw-bold">{item.name}</p>
-                          <small className="text-muted">
-                            {item.quantity} x ${item.price.toLocaleString('es-CO')}
-                          </small>
-                        </div>
+      {/* Categorías */}
+      <div className="d-flex flex-wrap gap-2 mb-4">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            className={`btn btn-sm ${
+              selectedCategory === cat ? 'btn-danger fw-bold shadow-sm' : 'btn-outline-danger'
+            } rounded-pill px-4 py-2`}
+            onClick={() => setSelectedCategory(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Grid de Productos Completo (4 columnas) */}
+      {loading ? (
+        <div className="text-center py-5">
+          <div className="spinner-border text-danger" role="status"></div>
+          <p className="mt-2 text-muted">Cargando catálogo de productos...</p>
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="text-center py-5 bg-light rounded-4 border">
+          <p className="text-muted mb-0">No hay productos disponibles en esta categoría.</p>
+        </div>
+      ) : (
+        <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+          {filteredProducts.map((p) => (
+            <div className="col" key={p.id}>
+              <div className="card h-100 border-0 shadow-sm rounded-4 overflow-hidden card-hover">
+                <Link to={`/producto/${p.id}`}>
+                  <img
+                    src={p.image}
+                    alt={p.name}
+                    className="card-img-top"
+                    style={{ height: '220px', objectFit: 'cover' }}
+                  />
+                </Link>
+                <div className="card-body d-flex flex-column justify-content-between p-3">
+                  <div>
+                    <Link to={`/producto/${p.id}`} className="text-decoration-none text-dark">
+                      <h6 className="fw-bold mb-1">{p.name}</h6>
+                    </Link>
+                    <p className="text-danger fw-bold fs-5 mb-2">
+                      ${p.price.toLocaleString('es-CO')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger btn-sm w-100 rounded-3 fw-bold py-2 mt-2"
+                    onClick={() => addToCart(p)}
+                  >
+                    <i className="bi bi-cart-plus me-1"></i> Agregar al Carrito
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* MENÚ LATERAL DESLIZANTE DEL CARRITO (OFFCANVAS) */}
+      <div
+        className="offcanvas offcanvas-end rounded-start-4 border-0 shadow-lg"
+        tabIndex="-1"
+        id="cartOffcanvas"
+        aria-labelledby="cartOffcanvasLabel"
+      >
+        <div className="offcanvas-header bg-dark text-white p-3">
+          <h5 className="offcanvas-title fw-bold d-flex align-items-center gap-2" id="cartOffcanvasLabel">
+            <i className="bi bi-cart3 text-danger"></i>
+            <span>Carrito de Compras</span>
+          </h5>
+          <button
+            type="button"
+            className="btn-close btn-close-white"
+            data-bs-dismiss="offcanvas"
+            aria-label="Close"
+          ></button>
+        </div>
+
+        <div className="offcanvas-body d-flex flex-column justify-content-between p-3">
+          {cart.length === 0 ? (
+            <div className="text-center py-5 my-auto text-muted">
+              <i className="bi bi-cart-x display-1 text-secondary d-block mb-3"></i>
+              <h5 className="fw-bold">El carrito está vacío</h5>
+              <p className="small">Agrega productos del catálogo para realizar tu compra.</p>
+            </div>
+          ) : (
+            <>
+              <div className="d-flex flex-column gap-2 overflow-auto mb-3 pe-1">
+                {cart.map((item) => (
+                  <div key={item.id} className="d-flex align-items-center justify-content-between bg-light p-2 rounded-3 border">
+                    <div className="d-flex align-items-center gap-3">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="rounded"
+                        style={{ width: '50px', height: '50px', objectFit: 'cover' }}
+                      />
+                      <div>
+                        <h6 className="mb-0 fw-bold text-dark fs-6">{item.name}</h6>
+                        <small className="text-muted">
+                          {item.quantity} x ${item.price.toLocaleString('es-CO')}
+                        </small>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-link text-danger p-0 ms-2 text-decoration-none fw-bold"
-                        onClick={() => removeFromCart(item.id)}
-                      >
-                        ✕
-                      </button>
                     </div>
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-link text-danger p-1 text-decoration-none fw-bold fs-5"
+                      onClick={() => removeFromCart(item.id)}
+                      title="Eliminar producto"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
 
-                <hr />
-
+              <div className="border-top pt-3">
                 <div className="d-flex justify-content-between align-items-center fw-bold mb-3">
-                  <span>Total:</span>
-                  <span className="text-danger fs-5">${cartTotal.toLocaleString('es-CO')}</span>
+                  <span className="fs-5">Total:</span>
+                  <span className="text-danger fs-4">${cartTotal.toLocaleString('es-CO')}</span>
                 </div>
 
-                <button 
+                <button
                   type="button"
-                  className="btn btn-danger w-100 fw-bold py-2 rounded-2"
+                  className="btn btn-danger w-100 fw-bold py-3 rounded-3 shadow-sm fs-6"
                   onClick={() => setShowCheckoutModal(true)}
                 >
                   <i className="bi bi-credit-card-2-front me-2"></i>
                   Proceder al Pago
                 </button>
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Pasarela de Pago */}
+      {/* MODAL DE PASARELA DE PAGO */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"
           tabIndex="-1"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1055 }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1060 }}
           onClick={() => setShowCheckoutModal(false)}
         >
           <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
