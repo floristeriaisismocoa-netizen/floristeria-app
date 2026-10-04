@@ -4,13 +4,11 @@ import { subscribeToOrders, updateOrderStatus } from '../services/ordersService'
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
-// Convertir números mayores a 1 en palabras en español
 const numberToWords = (num) => {
   const words = ['DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ'];
   return num >= 2 && num <= 10 ? words[num - 2] : String(num);
 };
 
-// Extractor dinámico de texto de voz sin la palabra "UN"
 const buildOrderSpeechText = (order) => {
   if (!order || !order.items || !Array.isArray(order.items) || order.items.length === 0) {
     return 'NUEVO PEDIDO PARA ELABORAR';
@@ -26,7 +24,6 @@ const buildOrderSpeechText = (order) => {
       return cleanName;
     }
     
-    // Si la cantidad es mayor a 1, agregamos el número en palabras
     return `${numberToWords(qty)} ${cleanName}`;
   });
 
@@ -48,7 +45,7 @@ export function KitchenView() {
   const [modalData, setModalData] = useState(null);
   const [wakeLockActive, setWakeLockActive] = useState(false);
 
-  const previousOrdersRef = useRef([]);
+  const previousIdsRef = useRef(null); // Guardará los IDs procesados previamente
   const wakeLockRef = useRef(null);
   const silentAudioRef = useRef(null);
 
@@ -63,7 +60,7 @@ export function KitchenView() {
         });
       }
     } catch (err) {
-      console.warn('Wake Lock no soportado o restringido:', err);
+      console.warn('Wake Lock no disponible:', err);
     }
   };
 
@@ -109,16 +106,25 @@ export function KitchenView() {
         return s === 'PENDIENTE_PREPARACION';
       });
 
-      const prevIds = previousOrdersRef.current.map((o) => o.id);
-      const newOrders = currentPendingOrders.filter((o) => !prevIds.includes(o.id));
+      const currentIds = currentPendingOrders.map((o) => o.id);
 
-      if (previousOrdersRef.current.length >= 0 && newOrders.length > 0 && audioEnabled) {
+      // 1. Primera carga: Inicializar referencia sin reproducir audio para evitar falsos positivos
+      if (previousIdsRef.current === null) {
+        previousIdsRef.current = currentIds;
+        setOrders(activeOrders);
+        return;
+      }
+
+      // 2. Cargas subsecuentes: Identificar nuevas órdenes
+      const newOrders = currentPendingOrders.filter((o) => !previousIdsRef.current.includes(o.id));
+
+      if (newOrders.length > 0 && audioEnabled) {
         const latestOrder = newOrders[0];
         const speechMessage = buildOrderSpeechText(latestOrder);
         speakText(speechMessage);
       }
 
-      previousOrdersRef.current = currentPendingOrders;
+      previousIdsRef.current = currentIds;
       setOrders(activeOrders);
     });
 
@@ -136,7 +142,7 @@ export function KitchenView() {
 
     if (newState) {
       await requestWakeLock();
-      speakText('ALERTA DE VOZ Y PANTALLA ACTIVA EN TALLER');
+      speakText('ALERTA DE VOZ ACTIVADA EN TALLER');
     } else {
       if (wakeLockRef.current) {
         wakeLockRef.current.release().catch(() => {});
