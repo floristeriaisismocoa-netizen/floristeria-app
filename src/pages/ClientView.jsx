@@ -17,8 +17,9 @@ export function ClientView() {
     return JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
   });
 
-  const [selectedCategory, setSelectedCategory] = useState('TODOS');
-  const [selectedSubCategory, setSelectedSubCategory] = useState(null); // Para RAMOS NATURALES, ETERNOS, FÚNEBRES
+  // Estado inicial NULL (Ninguna categoría seleccionada de entrada)
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -95,34 +96,34 @@ export function ClientView() {
     setShowCheckoutModal(true);
   };
 
-  // Filtrado flexible de productos por Categoría y Subcategoría
-  const filteredProducts = products.filter((p) => {
-    if (selectedCategory === 'TODOS') return true;
-    
-    // Si es RAMOS y hay subcategoría seleccionada
-    if (selectedCategory === 'RAMOS') {
-      if (selectedSubCategory) {
-        return p.category === 'RAMOS' && (p.subCategory === selectedSubCategory || p.name.toUpperCase().includes(selectedSubCategory));
-      }
-      return p.category === 'RAMOS' || p.category.includes('RAMO');
-    }
-
-    return p.category.includes(selectedCategory);
-  });
+  // Filtrar productos únicamente cuando hay una categoría seleccionada
+  const filteredProducts = selectedCategory
+    ? products.filter((p) => {
+        if (selectedCategory === 'RAMOS') {
+          if (selectedSubCategory) {
+            return (
+              p.category === 'RAMOS' &&
+              (p.subCategory === selectedSubCategory || p.name.toUpperCase().includes(selectedSubCategory))
+            );
+          }
+          return p.category === 'RAMOS' || p.category.includes('RAMO');
+        }
+        return p.category.includes(selectedCategory);
+      })
+    : [];
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  // Categorías Principales solicitadas
-  const categories = [
-    { id: 'TODOS', label: 'TODOS' },
-    { id: 'RAMOS', label: 'RAMOS', hasSubmenu: true },
-    { id: 'DESAYUNOS', label: 'DESAYUNOS' },
-    { id: 'PELUCHES', label: 'PELUCHES' },
-    { id: 'CHOCOLATES', label: 'CHOCOLATES' },
-    { id: 'GLOBOS', label: 'GLOBOS' },
-    { id: 'CORONAS', label: 'CORONAS' },
-    { id: 'MARIPOSAS', label: 'MARIPOSAS' },
-    { id: 'ESPECIALES', label: 'ESPECIALES' }
+  // Lista de Servicios Principales
+  const services = [
+    { id: 'RAMOS', label: 'RAMOS', icon: '🌹', desc: 'Naturales, Eternos y Fúnebres', hasSubmenu: true },
+    { id: 'DESAYUNOS', label: 'DESAYUNOS', icon: '🍳', desc: 'Sorpresas matutinas deliciosas' },
+    { id: 'PELUCHES', label: 'PELUCHES', icon: '🧸', desc: 'Detalles afelpados y tiernos' },
+    { id: 'CHOCOLATES', label: 'CHOCOLATES', icon: '🍫', desc: 'Cajas de golosinas y bombones' },
+    { id: 'GLOBOS', label: 'GLOBOS', icon: '🎈', desc: 'Arreglos y decoraciones con helio' },
+    { id: 'CORONAS', label: 'CORONAS', icon: '🕊️', desc: 'Arreglos para condolencias' },
+    { id: 'MARIPOSAS', label: 'MARIPOSAS', icon: '🦋', desc: 'Detalles con mariposas luminosas' },
+    { id: 'ESPECIALES', label: 'ESPECIALES', icon: '✨', desc: 'Diseños únicos e inolvidables' }
   ];
 
   const ramosSubcategories = [
@@ -184,29 +185,30 @@ export function ClientView() {
   return (
     <div className="bg-dark text-white min-vh-100 pb-5" style={{ backgroundColor: '#121212' }}>
       
-     {/* BANNER HERO DE BIENVENIDA */}
-<div className="bg-black py-5 px-3 text-center border-bottom border-success border-opacity-25 shadow">
-  <div className="container" style={{ maxWidth: '850px' }}>
-    <img
-      src="/logotipo.jpeg"
-      alt="Floristería Isis Logo"
-      className="rounded-circle border border-2 border-success shadow-lg mb-3"
-      style={{ width: '130px', height: '130px', objectFit: 'cover' }}
-    />
-    <h1 className="fw-bold display-5 text-success mb-2 text-uppercase tracking-wider">
-      ¡Bienvenidos a Floristería Isis!
-    </h1>
-    <h3 className="fs-4 text-light fw-normal mb-3">
-      ¿En qué te podemos servir hoy?
-    </h3>
-    <p className="text-secondary fs-6 text-uppercase fw-semibold tracking-wide border-top border-secondary pt-3 d-inline-block">
-      Este es nuestro despliegue de servicios de nuestra tienda
-    </p>
-  </div>
-</div>
+      {/* BANNER HERO DE BIENVENIDA */}
+      <div className="bg-black py-4 px-3 text-center border-bottom border-success border-opacity-25 shadow">
+        <div className="container" style={{ maxWidth: '850px' }}>
+          <img
+            src="/logotipo.jpeg"
+            alt="Floristería Isis Logo"
+            className="rounded-circle border border-2 border-success shadow-lg mb-2"
+            style={{ width: '110px', height: '110px', objectFit: 'cover' }}
+            onError={(e) => (e.target.style.display = 'none')}
+          />
+          <h1 className="fw-bold display-6 text-success mb-2 text-uppercase tracking-wider">
+            ¡BIENVENIDOS A FLORISTERÍA ISIS!
+          </h1>
+          <h3 className="fs-5 text-light fw-normal mb-2">
+            ¿En qué te podemos servir hoy?
+          </h3>
+          <p className="text-secondary small text-uppercase fw-semibold tracking-wide border-top border-secondary pt-2 mb-0 d-inline-block">
+            ESTE ES NUESTRO DESPLIEGUE DE SERVICIOS DE NUESTRA TIENDA
+          </p>
+        </div>
+      </div>
 
-      <div className="container-fluid px-4 py-4">
-        {/* ENCABEZADO PUNTO DE VENTA CAJA */}
+      <div className="container px-4 py-4">
+        {/* INDICADOR MODALIDAD CAJA */}
         {isCajaOrAdmin && (
           <div className="d-flex justify-content-end mb-3">
             <span className="badge bg-success fs-6 px-4 py-2 rounded-pill shadow">
@@ -215,99 +217,133 @@ export function ClientView() {
           </div>
         )}
 
-        {/* MENÚ DE CATEGORÍAS PRINCIPAL */}
-        <div className="d-flex flex-wrap justify-content-center gap-2 mb-3">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              className={`btn ${
-                selectedCategory === cat.id
-                  ? 'btn-success fw-bold shadow-lg'
-                  : 'btn-outline-light border-secondary text-light'
-              } rounded-pill px-4 py-2 text-uppercase font-semibold`}
-              onClick={() => {
-                setSelectedCategory(cat.id);
-                setSelectedSubCategory(null);
-              }}
-            >
-              {cat.label} {cat.hasSubmenu && <i className="bi bi-chevron-down ms-1"></i>}
-            </button>
-          ))}
-        </div>
+        {/* SI NO HAY CATEGORÍA SELECCIONADA: MOSTRAR MÓDULOS DE SERVICIOS LIMPIDOS */}
+        {!selectedCategory ? (
+          <div>
+            <div className="text-center mb-4">
+              <h4 className="fw-bold text-success text-uppercase">Elige el servicio que requieres:</h4>
+              <p className="text-muted small">Haz clic sobre la categoría para ver los productos disponibles</p>
+            </div>
 
-        {/* SUBMENÚ DESPLEGABLE PARA RAMOS */}
-        {selectedCategory === 'RAMOS' && (
-          <div className="bg-black p-3 rounded-4 border border-success border-opacity-50 mb-4 max-w-2xl mx-auto text-center shadow">
-            <small className="text-success fw-bold text-uppercase d-block mb-2">
-              <i className="bi bi-flower1 me-1"></i> Selecciona la variedad de Ramos:
-            </small>
-            <div className="d-flex flex-wrap justify-content-center gap-2">
-              {ramosSubcategories.map((sub) => (
-                <button
-                  key={sub.label}
-                  type="button"
-                  className={`btn btn-sm ${
-                    selectedSubCategory === sub.id
-                      ? 'btn-warning text-dark fw-bold'
-                      : 'btn-outline-success text-white'
-                  } rounded-pill px-3`}
-                  onClick={() => setSelectedSubCategory(sub.id)}
-                >
-                  {sub.label}
-                </button>
+            <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
+              {services.map((srv) => (
+                <div className="col" key={srv.id}>
+                  <div
+                    className="card h-100 border-secondary bg-black rounded-4 p-4 text-center cursor-pointer service-card shadow-lg hover-border-success"
+                    style={{ backgroundColor: '#181818', cursor: 'pointer', transition: 'transform 0.2s' }}
+                    onClick={() => {
+                      setSelectedCategory(srv.id);
+                      setSelectedSubCategory(null);
+                    }}
+                  >
+                    <div className="display-4 mb-2">{srv.icon}</div>
+                    <h5 className="fw-bold text-white text-uppercase mb-1">{srv.label}</h5>
+                    <small className="text-muted">{srv.desc}</small>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
-        )}
-
-        {/* GRID DE PRODUCTOS EN MODO OSCURO (4 Columnas) */}
-        {loading ? (
-          <div className="text-center py-5">
-            <div className="spinner-border text-success" role="status"></div>
-            <p className="mt-2 text-muted">Cargando arreglos florales...</p>
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-5 bg-black rounded-4 border border-secondary my-4">
-            <i className="bi bi-flower2 display-3 text-secondary d-block mb-2"></i>
-            <h5 className="text-muted">No hay productos disponibles en esta sección por el momento.</h5>
-          </div>
         ) : (
-          <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 mt-1">
-            {filteredProducts.map((p) => (
-              <div className="col" key={p.id}>
-                <div
-                  className="card h-100 border-secondary bg-black rounded-4 overflow-hidden shadow-lg transition-all"
-                  style={{ backgroundColor: '#181818' }}
-                >
-                  <Link to={`/producto/${p.id}`}>
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      className="card-img-top"
-                      style={{ height: '230px', objectFit: 'cover' }}
-                    />
-                  </Link>
-                  <div className="card-body d-flex flex-column justify-content-between p-3">
-                    <div>
-                      <Link to={`/producto/${p.id}`} className="text-decoration-none text-white">
-                        <h6 className="fw-bold mb-1 text-light fs-6">{p.name}</h6>
-                      </Link>
-                      <p className="text-success fw-bold fs-5 mb-2">
-                        ${p.price.toLocaleString('es-CO')}
-                      </p>
-                    </div>
+          /* SI YA SELECCIONÓ UNA CATEGORÍA: MOSTRAR PRODUCTOS Y BOTÓN DE REGRESO */
+          <div>
+            <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-light rounded-pill px-4 fw-bold"
+                onClick={() => {
+                  setSelectedCategory(null);
+                  setSelectedSubCategory(null);
+                }}
+              >
+                <i className="bi bi-arrow-left me-2"></i> Volver al Menú de Servicios
+              </button>
+
+              <h3 className="fw-bold text-success text-uppercase mb-0">
+                Servicio: {selectedCategory}
+              </h3>
+            </div>
+
+            {/* SUBMENÚ SOLO SI SELECCIONÓ RAMOS */}
+            {selectedCategory === 'RAMOS' && (
+              <div className="bg-black p-3 rounded-4 border border-success border-opacity-50 mb-4 max-w-2xl mx-auto text-center shadow">
+                <small className="text-success fw-bold text-uppercase d-block mb-2">
+                  <i className="bi bi-flower1 me-1"></i> Selecciona la variedad de Ramos:
+                </small>
+                <div className="d-flex flex-wrap justify-content-center gap-2">
+                  {ramosSubcategories.map((sub) => (
                     <button
+                      key={sub.label}
                       type="button"
-                      className="btn btn-outline-success text-white btn-sm w-100 rounded-3 fw-bold py-2 mt-2"
-                      onClick={() => addToCart(p)}
+                      className={`btn btn-sm ${
+                        selectedSubCategory === sub.id
+                          ? 'btn-warning text-dark fw-bold'
+                          : 'btn-outline-success text-white'
+                      } rounded-pill px-3`}
+                      onClick={() => setSelectedSubCategory(sub.id)}
                     >
-                      <i className="bi bi-cart-plus me-1"></i> Agregar al Carrito
+                      {sub.label}
                     </button>
-                  </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* PRODUCTOS FILTRADOS */}
+            {loading ? (
+              <div className="text-center py-5">
+                <div className="spinner-border text-success" role="status"></div>
+                <p className="mt-2 text-muted">Cargando productos...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="text-center py-5 bg-black rounded-4 border border-secondary my-4">
+                <i className="bi bi-flower2 display-3 text-secondary d-block mb-2"></i>
+                <h5 className="text-muted">No hay productos disponibles en esta sección por el momento.</h5>
+                <button
+                  className="btn btn-outline-success rounded-pill mt-3 px-4"
+                  onClick={() => setSelectedCategory(null)}
+                >
+                  Elegir otro servicio
+                </button>
+              </div>
+            ) : (
+              <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+                {filteredProducts.map((p) => (
+                  <div className="col" key={p.id}>
+                    <div
+                      className="card h-100 border-secondary bg-black rounded-4 overflow-hidden shadow-lg"
+                      style={{ backgroundColor: '#181818' }}
+                    >
+                      <Link to={`/producto/${p.id}`}>
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          className="card-img-top"
+                          style={{ height: '220px', objectFit: 'cover' }}
+                        />
+                      </Link>
+                      <div className="card-body d-flex flex-column justify-content-between p-3">
+                        <div>
+                          <Link to={`/producto/${p.id}`} className="text-decoration-none text-white">
+                            <h6 className="fw-bold mb-1 text-light fs-6">{p.name}</h6>
+                          </Link>
+                          <p className="text-success fw-bold fs-5 mb-2">
+                            ${p.price.toLocaleString('es-CO')}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-outline-success text-white btn-sm w-100 rounded-3 fw-bold py-2 mt-2"
+                          onClick={() => addToCart(p)}
+                        >
+                          <i className="bi bi-cart-plus me-1"></i> Agregar al Carrito
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
