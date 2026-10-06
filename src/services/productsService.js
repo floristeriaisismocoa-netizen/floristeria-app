@@ -50,6 +50,9 @@ export const createProduct = async (productData, imageFiles) => {
   });
 };
 
+// Alias para mantener compatibilidad con AdminProductsView
+export const addProduct = createProduct;
+
 // Actualizar producto
 export const updateProduct = async (id, productData, newImageFiles, existingImages = []) => {
   let newUrls = [];
@@ -73,6 +76,7 @@ export const deleteProduct = async (id) => {
   const productRef = doc(db, PRODUCTS_COLLECTION, id);
   return await deleteDoc(productRef);
 };
+
 // Crear pedido para Taller
 export const createOrder = async (cartItems, total) => {
   return await addDoc(collection(db, 'orders'), {

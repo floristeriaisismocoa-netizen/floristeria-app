@@ -1,6 +1,6 @@
 // src/pages/AdminProductsView.jsx
 import React, { useState, useEffect } from 'react';
-import { subscribeToProducts, addProduct, updateProduct, deleteProduct } from '../services/productsService';
+import { subscribeToProducts, createProduct, updateProduct, deleteProduct } from '../services/productsService';
 
 export function AdminProductsView() {
   const [products, setProducts] = useState([]);
@@ -109,7 +109,7 @@ export function AdminProductsView() {
         await updateProduct(editingId, productData, images, existingImages);
         alert('Producto actualizado con éxito.');
       } else {
-        await addProduct(productData, images);
+        await createProduct(productData, images);
         alert('Producto agregado con éxito.');
       }
 
@@ -353,13 +353,13 @@ export function AdminProductsView() {
                         className="btn btn-sm btn-outline-primary me-2"
                         onClick={() => handleEdit(p)}
                       >
-                        ✏️ Editar
+                        ✏️️ Editar
                       </button>
                       <button
                         className="btn btn-sm btn-outline-danger"
                         onClick={() => handleDelete(p.id)}
                       >
-                        🗑️️ Eliminar
+                        🗑️ Eliminar
                       </button>
                     </td>
                   </tr>
