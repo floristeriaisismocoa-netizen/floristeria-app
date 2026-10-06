@@ -1,200 +1,211 @@
 // src/pages/AdminProductsView.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  subscribeToProducts, 
-  createProduct, 
-  updateProduct, 
-  deleteProduct 
-} from '../services/productsService';
+import React, { useState, useEffect } from 'react';
+import { subscribeToProducts, addProduct, updateProduct, deleteProduct } from '../services/productsService';
 
 export function AdminProductsView() {
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // Referencia para limpiar el input de tipo file
-  const fileInputRef = useRef(null);
-
-  // Campos del formulario
-  const [code, setCode] = useState('');
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Ramos');
+  // Formulario de Producto
+  const [sku, setSku] = useState('');
+  const [name, setName] = useState('');
+  const [category, setCategory] = useState('RAMOS');
+  const [subCategory, setSubCategory] = useState('NATURALES');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
-  
-  // Estado para imágenes existentes (URLs de Firebase) y nuevas imágenes seleccionadas (File objects)
+  const [images, setImages] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
-  const [selectedFiles, setSelectedFiles] = useState([]);
 
   useEffect(() => {
     const unsubscribe = subscribeToProducts((data) => {
       setProducts(data);
+      setLoading(false);
     });
-    return () => unsubscribe();
+    return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Manejar selección acumulativa de nuevas imágenes
-  const handleFileChange = (e) => {
+  const categories = [
+    { id: 'RAMOS', label: 'Ramos' },
+    { id: 'DESAYUNOS', label: 'Desayunos' },
+    { id: 'PELUCHES', label: 'Peluches' },
+    { id: 'CHOCOLATES', label: 'Chocolates' },
+    { id: 'GLOBOS', label: 'Globos' },
+    { id: 'CORONAS', label: 'Coronas' },
+    { id: 'MARIPOSAS', label: 'Mariposas' },
+    { id: 'ESPECIALES', label: 'Especiales' }
+  ];
+
+  const subCategoriesRamos = [
+    { id: 'NATURALES', label: 'Ramos Naturales' },
+    { id: 'ETERNOS', label: 'Ramos Eternos' },
+    { id: 'FUNEBRES', label: 'Ramos Fúnebres' }
+  ];
+
+  const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    // Combinar los archivos previamente seleccionados con los nuevos seleccionados
-    const updatedFiles = [...selectedFiles, ...files];
-    const totalCount = existingImages.length + updatedFiles.length;
-
-    if (totalCount > 10) {
-      alert('Solo se permite un máximo de 10 imágenes por producto.');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    if (files.length + existingImages.length > 10) {
+      alert('Solo puedes subir hasta 10 imágenes por producto.');
       return;
     }
-
-    setSelectedFiles(updatedFiles);
-
-    // Resetear el valor del input para permitir seleccionar más imágenes en un clic posterior
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  // Quitar una imagen de las guardadas previamente en Firebase
-  const handleRemoveExistingImage = (indexToRemove) => {
-    setExistingImages(existingImages.filter((_, idx) => idx !== indexToRemove));
-  };
-
-  // Quitar una imagen de las nuevas seleccionadas localmente
-  const handleRemoveNewFile = (indexToRemove) => {
-    setSelectedFiles(selectedFiles.filter((_, idx) => idx !== indexToRemove));
+    setImages(files);
   };
 
   const resetForm = () => {
     setEditingId(null);
-    setCode('');
-    setTitle('');
-    setCategory('Ramos');
+    setSku('');
+    setName('');
+    setCategory('RAMOS');
+    setSubCategory('NATURALES');
     setPrice('');
     setDescription('');
+    setImages([]);
     setExistingImages([]);
-    setSelectedFiles([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   const handleEdit = (product) => {
     setEditingId(product.id);
-    setCode(product.code || '');
-    setTitle(product.title || '');
-    setCategory(product.category || 'Ramos');
+    setSku(product.sku || '');
+    setName(product.title || product.name || '');
+    const currentCat = (product.category || 'RAMOS').toUpperCase();
+    setCategory(currentCat);
+    setSubCategory(product.subCategory ? product.subCategory.toUpperCase() : 'NATURALES');
     setPrice(product.price || '');
     setDescription(product.description || '');
-    setExistingImages(product.images || []);
-    setSelectedFiles([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    
+    const imgs = product.images && product.images.length > 0 
+      ? product.images 
+      : (product.image ? [product.image] : []);
+    setExistingImages(imgs);
+    setImages([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name || !price) {
+      alert('Por favor completa el nombre y el precio del producto.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const productData = {
+        sku: sku.trim(),
+        title: name.trim(),
+        name: name.trim(),
+        category: category.toUpperCase(),
+        subCategory: category.toUpperCase() === 'RAMOS' ? subCategory.toUpperCase() : null,
+        price: Number(price),
+        description: description.trim()
+      };
+
+      if (editingId) {
+        await updateProduct(editingId, productData, images, existingImages);
+        alert('Producto actualizado con éxito.');
+      } else {
+        await addProduct(productData, images);
+        alert('Producto agregado con éxito.');
+      }
+
+      resetForm();
+    } catch (error) {
+      console.error('Error al guardar el producto:', error);
+      alert('Ocurrió un error al guardar en Firestore.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este producto?')) {
       try {
         await deleteProduct(id);
-      } catch (err) {
-        console.error('Error al eliminar producto:', err);
-        alert('Ocurrió un error al intentar eliminar el producto.');
+      } catch (error) {
+        console.error('Error al eliminar producto:', error);
+        alert('No se pudo eliminar el producto.');
       }
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (existingImages.length + selectedFiles.length > 10) {
-      alert('El producto no puede tener más de 10 imágenes.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const productData = { 
-        code, 
-        title, 
-        category, 
-        price: Number(price) || 0, 
-        description 
-      };
-
-      if (editingId) {
-        await updateProduct(editingId, productData, selectedFiles, existingImages);
-      } else {
-        await createProduct(productData, selectedFiles);
-      }
-
-      resetForm();
-    } catch (err) {
-      console.error('Error al guardar producto:', err);
-      alert('Error al guardar el producto. Revisa la consola o las reglas de Firebase.');
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <div className="container py-4" style={{ maxWidth: '900px' }}>
-      <h2 className="fw-bold text-center mb-4">
-        <i className="bi bi-box-seam me-2 text-danger"></i>
-        Gestión de Productos (Admin)
-      </h2>
-
-      {/* Formulario de Creación / Edición */}
-      <div className="card shadow-sm border-0 mb-5 p-4 rounded-3">
-        <h4 className="fw-bold text-dark mb-3">
+    <div className="container py-4">
+      <div className="card shadow-sm border-0 rounded-4 p-4 mb-4">
+        <h3 className="fw-bold mb-4 text-dark">
           {editingId ? '✏️ Editar Producto' : '➕ Agregar Nuevo Producto'}
-        </h4>
+        </h3>
 
         <form onSubmit={handleSubmit}>
           <div className="row g-3">
-            <div className="col-md-4">
-              <label className="form-label small fw-bold">Código / SKU</label>
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">Código / SKU:</label>
               <input
                 type="text"
                 className="form-control"
                 placeholder="Ej: ROS-001"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                required
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
               />
             </div>
 
-            <div className="col-md-8">
-              <label className="form-label small fw-bold">Nombre del Producto</label>
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">Nombre del Producto:</label>
               <input
                 type="text"
                 className="form-control"
                 placeholder="Ej: Ramo Dubay"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
               />
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-bold">Categoría</label>
-              <select 
+              <label className="form-label fw-semibold">Categoría Principal:</label>
+              <select
                 className="form-select"
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCategory(val);
+                  if (val === 'RAMOS') {
+                    setSubCategory('NATURALES');
+                  } else {
+                    setSubCategory('');
+                  }
+                }}
               >
-                <option value="Ramos">Ramos</option>
-                <option value="Desayunos">Desayunos</option>
-                <option value="Peluches">Peluches</option>
-                <option value="Mensajes">Mensajes</option>
-                <option value="Especiales">Especiales</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div className="col-md-6">
-              <label className="form-label small fw-bold">Precio ($ COP)</label>
+            {/* DESPLEGABLE DINÁMICO DE SUBCATEGORÍA PARA RAMOS */}
+            {category === 'RAMOS' && (
+              <div className="col-md-6 bg-light p-2 rounded-3 border border-success">
+                <label className="form-label fw-bold text-success">
+                  🌹 Subcategoría de Ramos:
+                </label>
+                <select
+                  className="form-select fw-semibold"
+                  value={subCategory}
+                  onChange={(e) => setSubCategory(e.target.value)}
+                >
+                  {subCategoriesRamos.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className={category === 'RAMOS' ? 'col-md-12' : 'col-md-6'}>
+              <label className="form-label fw-semibold">Precio ($ COP):</label>
               <input
                 type="number"
                 className="form-control"
@@ -206,7 +217,7 @@ export function AdminProductsView() {
             </div>
 
             <div className="col-12">
-              <label className="form-label small fw-bold">Descripción</label>
+              <label className="form-label fw-semibold">Descripción:</label>
               <textarea
                 className="form-control"
                 rows="3"
@@ -216,156 +227,135 @@ export function AdminProductsView() {
               ></textarea>
             </div>
 
-            {/* Subida de Imágenes */}
             <div className="col-12">
-              <label className="form-label small fw-bold">
-                Imágenes del Producto (Máximo 10)
-              </label>
+              <label className="form-label fw-semibold">Imágenes del Producto (Máximo 10):</label>
               <input
-                ref={fileInputRef}
                 type="file"
                 className="form-control"
                 accept="image/*"
                 multiple
-                onChange={handleFileChange}
+                onChange={handleImageChange}
               />
               <small className="text-muted d-block mt-1">
-                Guardadas en BD: {existingImages.length} | Seleccionadas para subir: {selectedFiles.length} (Total máximo: 10)
+                Guardadas en BD: {existingImages.length} | Seleccionadas para subir: {images.length}
               </small>
-            </div>
 
-            {/* Previsualización de Imágenes Guardadas en Firebase (modo edición) */}
-            {existingImages.length > 0 && (
-              <div className="col-12">
-                <p className="small fw-bold mb-2">Imágenes guardadas actualmente:</p>
-                <div className="d-flex flex-wrap gap-2">
-                  {existingImages.map((imgUrl, idx) => (
-                    <div key={`existing-${idx}`} className="position-relative">
-                      <img 
-                        src={imgUrl} 
-                        alt="Preview de BD" 
-                        className="rounded border" 
-                        style={{ width: '75px', height: '75px', objectFit: 'cover' }} 
+              {existingImages.length > 0 && (
+                <div className="d-flex flex-wrap gap-2 mt-2">
+                  {existingImages.map((img, idx) => (
+                    <div key={idx} className="position-relative">
+                      <img
+                        src={img}
+                        alt="Vista previa"
+                        className="rounded border"
+                        style={{ width: '60px', height: '60px', objectFit: 'cover' }}
                       />
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm position-absolute p-0 rounded-circle"
-                        style={{ width: '20px', height: '20px', fontSize: '10px', top: '-5px', right: '-5px' }}
-                        onClick={() => handleRemoveExistingImage(idx)}
-                        title="Eliminar imagen guardada"
+                        className="btn btn-sm btn-danger position-absolute top-0 end-0 p-0 rounded-circle"
+                        style={{ width: '18px', height: '18px', fontSize: '10px', lineHeight: 1 }}
+                        onClick={() => setExistingImages(existingImages.filter((_, i) => i !== idx))}
                       >
                         ✕
                       </button>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Previsualización de Nuevas Imágenes Seleccionadas */}
-            {selectedFiles.length > 0 && (
-              <div className="col-12">
-                <p className="small fw-bold mb-2 text-primary">Nuevas imágenes por agregar:</p>
-                <div className="d-flex flex-wrap gap-2">
-                  {selectedFiles.map((file, idx) => (
-                    <div key={`new-${idx}`} className="position-relative">
-                      <img 
-                        src={URL.createObjectURL(file)} 
-                        alt={`Nuevas-${idx}`} 
-                        className="rounded border border-primary" 
-                        style={{ width: '75px', height: '75px', objectFit: 'cover' }} 
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm position-absolute p-0 rounded-circle"
-                        style={{ width: '20px', height: '20px', fontSize: '10px', top: '-5px', right: '-5px' }}
-                        onClick={() => handleRemoveNewFile(idx)}
-                        title="Quitar esta imagen"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Botones del Formulario */}
-            <div className="col-12 d-flex gap-2 justify-content-end mt-4">
-              {editingId && (
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary fw-bold"
-                  onClick={resetForm}
-                  disabled={loading}
-                >
-                  Cancelar
-                </button>
               )}
-              <button
-                type="submit"
-                className="btn btn-danger fw-bold px-4"
-                disabled={loading}
-              >
-                {loading ? 'Guardando...' : editingId ? 'Actualizar Producto' : 'Guardar Producto'}
-              </button>
             </div>
+          </div>
+
+          <div className="d-flex gap-2 justify-content-end mt-4">
+            {editingId && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary rounded-3"
+                onClick={resetForm}
+              >
+                Cancelar Edición
+              </button>
+            )}
+            <button
+              type="submit"
+              className="btn btn-danger rounded-3 px-4 fw-bold"
+              disabled={saving}
+            >
+              {saving ? 'Guardando...' : editingId ? 'Actualizar Producto' : 'Guardar Producto'}
+            </button>
           </div>
         </form>
       </div>
 
-      {/* Lista / Tabla de Productos */}
-      <div className="card shadow-sm border-0 p-4 rounded-3">
-        <h4 className="fw-bold mb-3">Catálogo en Inventario ({products.length})</h4>
+      {/* LISTADO DE PRODUCTOS */}
+      <div className="card shadow-sm border-0 rounded-4 p-4">
+        <h4 className="fw-bold mb-3 text-dark">Inventario de Productos ({products.length})</h4>
 
-        {products.length === 0 ? (
-          <p className="text-muted text-center py-4">No hay productos registrados aún.</p>
+        {loading ? (
+          <div className="text-center py-4">
+            <div className="spinner-border text-danger" role="status"></div>
+          </div>
+        ) : products.length === 0 ? (
+          <p className="text-muted">No hay productos registrados en la base de datos.</p>
         ) : (
           <div className="table-responsive">
-            <table className="table align-middle">
-              <thead>
+            <table className="table table-hover align-middle">
+              <thead className="table-dark">
                 <tr>
                   <th>Imagen</th>
-                  <th>Código</th>
+                  <th>SKU</th>
                   <th>Nombre</th>
                   <th>Categoría</th>
+                  <th>Subcategoría</th>
                   <th>Precio</th>
                   <th className="text-end">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {products.map((prod) => (
-                  <tr key={prod.id}>
+                {products.map((p) => (
+                  <tr key={p.id}>
                     <td>
-                      {prod.images && prod.images.length > 0 ? (
-                        <img 
-                          src={prod.images[0]} 
-                          alt={prod.title} 
-                          className="rounded border" 
-                          style={{ width: '50px', height: '50px', objectFit: 'cover' }} 
-                        />
+                      <img
+                        src={
+                          p.images && p.images.length > 0
+                            ? p.images[0]
+                            : p.image || 'https://via.placeholder.com/50'
+                        }
+                        alt={p.title || p.name}
+                        className="rounded"
+                        style={{ width: '50px', height: '50px', objectFit: 'cover' }}
+                      />
+                    </td>
+                    <td><small className="fw-bold">{p.sku || 'N/A'}</small></td>
+                    <td className="fw-semibold">{p.title || p.name}</td>
+                    <td>
+                      <span className="badge bg-secondary">
+                        {p.category || 'RAMOS'}
+                      </span>
+                    </td>
+                    <td>
+                      {p.subCategory ? (
+                        <span className="badge bg-success">
+                          {p.subCategory}
+                        </span>
                       ) : (
-                        <div className="bg-light rounded border text-center py-2" style={{ width: '50px', height: '50px' }}>
-                          <i className="bi bi-image text-muted"></i>
-                        </div>
+                        <small className="text-muted">-</small>
                       )}
                     </td>
-                    <td className="fw-bold">{prod.code}</td>
-                    <td>{prod.title}</td>
-                    <td><span className="badge bg-secondary">{prod.category}</span></td>
-                    <td className="fw-bold text-success">${Number(prod.price).toLocaleString('es-CO')}</td>
+                    <td className="fw-bold text-danger">
+                      ${Number(p.price || 0).toLocaleString('es-CO')}
+                    </td>
                     <td className="text-end">
-                      <button 
+                      <button
                         className="btn btn-sm btn-outline-primary me-2"
-                        onClick={() => handleEdit(prod)}
+                        onClick={() => handleEdit(p)}
                       >
-                        <i className="bi bi-pencil"></i>
+                        ✏️ Editar
                       </button>
-                      <button 
+                      <button
                         className="btn btn-sm btn-outline-danger"
-                        onClick={() => handleDelete(prod.id)}
+                        onClick={() => handleDelete(p.id)}
                       >
-                        <i className="bi bi-trash"></i>
+                        🗑️ Eliminar
                       </button>
                     </td>
                   </tr>
