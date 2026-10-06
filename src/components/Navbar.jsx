@@ -8,7 +8,6 @@ export function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Estado para el contador del carrito
   const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
@@ -40,23 +39,26 @@ export function Navbar() {
   const isActive = (path) => location.pathname.startsWith(path) && (path !== '/' || location.pathname === '/');
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark px-3 py-2 shadow-sm sticky-top">
+    <nav className="navbar navbar-expand-lg navbar-dark bg-black px-3 py-2 shadow border-bottom border-dark sticky-top">
       <div className="container-fluid">
-        {/* LOGO */}
+        {/* LOGO FLORISTERÍA ISIS */}
         <Link className="navbar-brand d-flex align-items-center gap-2 fw-bold fs-4 me-4" to="/">
-          <span role="img" aria-label="flor">🌸</span>
-          <span style={{ color: '#ffffff' }}>Floristería</span>
+          <img
+            src="/logotipo.jpeg"
+            alt="Floristería Isis"
+            className="rounded-circle border border-success"
+            style={{ width: '45px', height: '45px', objectFit: 'cover' }}
+          />
+          <span className="text-white font-serif">Floristería Isis</span>
         </Link>
 
-        {/* BOTÓN CARRITO MOBILE & TOGGLER */}
         <div className="d-flex align-items-center gap-2 d-lg-none me-2">
           <button
-            className="btn btn-outline-light position-relative rounded-circle border-0"
+            className="btn btn-outline-success position-relative rounded-circle border-0"
             data-bs-toggle="offcanvas"
             data-bs-target="#cartOffcanvas"
-            aria-controls="cartOffcanvas"
           >
-            <i className="bi bi-cart3 fs-4"></i>
+            <i className="bi bi-cart3 fs-4 text-white"></i>
             {cartCount > 0 && (
               <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                 {cartCount}
@@ -78,7 +80,7 @@ export function Navbar() {
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
             <li className="nav-item">
               <Link
-                className={`nav-link px-3 rounded-2 fw-medium ${isActive('/') && location.pathname === '/' ? 'active bg-secondary bg-opacity-25' : ''}`}
+                className={`nav-link px-3 rounded-pill fw-medium ${isActive('/') && location.pathname === '/' ? 'active bg-success text-white' : 'text-light'}`}
                 to="/"
               >
                 🏠 Tienda
@@ -87,7 +89,7 @@ export function Navbar() {
 
             <li className="nav-item">
               <Link
-                className={`nav-link px-3 rounded-2 fw-medium ${isActive('/rastreo') ? 'active bg-secondary bg-opacity-25 text-warning' : ''}`}
+                className={`nav-link px-3 rounded-pill fw-medium ${isActive('/rastreo') ? 'active bg-warning text-dark' : 'text-light'}`}
                 to="/rastreo"
               >
                 🔍 Rastrear Pedido
@@ -97,10 +99,10 @@ export function Navbar() {
             {user && (role === 'florist' || role === 'taller' || role === 'admin') && (
               <li className="nav-item">
                 <Link
-                  className={`nav-link px-3 rounded-2 fw-medium ${isActive('/taller') ? 'active bg-secondary bg-opacity-25' : ''}`}
+                  className={`nav-link px-3 rounded-pill fw-medium ${isActive('/taller') ? 'active bg-info text-dark' : 'text-light'}`}
                   to="/taller"
                 >
-                  ✂️ Taller
+                  ✂ Taller
                 </Link>
               </li>
             )}
@@ -108,7 +110,7 @@ export function Navbar() {
             {user && (role === 'delivery' || role === 'domicilio' || role === 'admin') && (
               <li className="nav-item">
                 <Link
-                  className={`nav-link px-3 rounded-2 fw-medium ${isActive('/domicilios') ? 'active bg-secondary bg-opacity-25' : ''}`}
+                  className={`nav-link px-3 rounded-pill fw-medium ${isActive('/domicilios') ? 'active bg-primary text-white' : 'text-light'}`}
                   to="/domicilios"
                 >
                   🚚 Domicilio
@@ -119,7 +121,7 @@ export function Navbar() {
             {user && role === 'admin' && (
               <li className="nav-item">
                 <Link
-                  className={`nav-link px-3 rounded-2 fw-medium ${isActive('/admin') ? 'active bg-primary text-white' : ''}`}
+                  className={`nav-link px-3 rounded-pill fw-medium ${isActive('/admin') ? 'active bg-danger text-white' : 'text-light'}`}
                   to="/admin"
                 >
                   📦 Admin Productos
@@ -129,14 +131,12 @@ export function Navbar() {
           </ul>
 
           <div className="d-flex align-items-center gap-3">
-            {/* BOTÓN DEL CARRITO DESKTOP */}
             <button
-              className="btn btn-outline-light position-relative rounded-pill px-3 py-1 d-none d-lg-flex align-items-center gap-2 border-1"
+              className="btn btn-outline-success text-white position-relative rounded-pill px-3 py-1 d-none d-lg-flex align-items-center gap-2"
               data-bs-toggle="offcanvas"
               data-bs-target="#cartOffcanvas"
-              aria-controls="cartOffcanvas"
             >
-              <i className="bi bi-cart3 fs-5"></i>
+              <i className="bi bi-cart3 fs-5 text-success"></i>
               <span className="fw-semibold">Carrito</span>
               {cartCount > 0 && (
                 <span className="badge rounded-pill bg-danger ms-1">
@@ -145,7 +145,6 @@ export function Navbar() {
               )}
             </button>
 
-            {/* USUARIO & SESIÓN */}
             {user ? (
               <div className="d-flex align-items-center gap-2">
                 <span className={`badge rounded-pill px-3 py-2 fw-bold ${
@@ -161,7 +160,7 @@ export function Navbar() {
 
                 <button
                   onClick={handleLogout}
-                  className="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 px-3 py-2 border-1 rounded-3 fw-semibold shadow-none"
+                  className="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 px-3 py-2 rounded-pill fw-semibold shadow-none"
                 >
                   <i className="bi bi-box-arrow-right fs-6"></i>
                   <span>Cerrar Sesión</span>
@@ -170,7 +169,7 @@ export function Navbar() {
             ) : (
               <Link
                 to="/login"
-                className="btn btn-danger btn-sm d-flex align-items-center gap-2 px-3 py-2 rounded-3 fw-semibold shadow-none text-white text-decoration-none"
+                className="btn btn-success btn-sm d-flex align-items-center gap-2 px-4 py-2 rounded-pill fw-semibold text-white text-decoration-none shadow-sm"
               >
                 <i className="bi bi-box-arrow-in-right fs-6"></i>
                 <span>Iniciar Sesión</span>

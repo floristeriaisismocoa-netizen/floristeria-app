@@ -16,7 +16,9 @@ export function ClientView() {
   const [cart, setCart] = useState(() => {
     return JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
   });
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+
+  const [selectedCategory, setSelectedCategory] = useState('TODOS');
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null); // Para RAMOS NATURALES, ETERNOS, FÚNEBRES
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -52,7 +54,8 @@ export function ClientView() {
         name: item.title || item.name || 'Arreglo Floral',
         title: item.title || item.name || 'Arreglo Floral',
         price: Number(item.price) || 0,
-        category: item.category || 'Ramos',
+        category: (item.category || 'RAMOS').toUpperCase(),
+        subCategory: item.subCategory ? item.subCategory.toUpperCase() : null,
         description: item.description || '',
         images: item.images && item.images.length > 0 ? item.images : (item.image ? [item.image] : []),
         image: item.images && item.images.length > 0 
@@ -83,33 +86,51 @@ export function ClientView() {
     updateCart(cart.filter((item) => item.id !== productId));
   };
 
-  // Abrir la pasarela cerrando primero el menú del carrito para liberar el foco del teclado
   const handleOpenCheckout = () => {
     const offcanvasElement = document.getElementById('cartOffcanvas');
     if (offcanvasElement) {
-      // 1. Intentar cerrar via API de Bootstrap
-      if (window.bootstrap && window.bootstrap.Offcanvas) {
-        const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(offcanvasElement) || new window.bootstrap.Offcanvas(offcanvasElement);
-        bsOffcanvas.hide();
-      }
-      
-      // 2. Ocultar elemento directamente por selector si aplica
       const closeBtn = offcanvasElement.querySelector('.btn-close');
-      if (closeBtn) {
-        closeBtn.click();
-      }
+      if (closeBtn) closeBtn.click();
     }
-
-    // Mostrar el modal de la pasarela
     setShowCheckoutModal(true);
   };
 
-  const filteredProducts = selectedCategory === 'Todos'
-    ? products
-    : products.filter((p) => p.category === selectedCategory);
+  // Filtrado flexible de productos por Categoría y Subcategoría
+  const filteredProducts = products.filter((p) => {
+    if (selectedCategory === 'TODOS') return true;
+    
+    // Si es RAMOS y hay subcategoría seleccionada
+    if (selectedCategory === 'RAMOS') {
+      if (selectedSubCategory) {
+        return p.category === 'RAMOS' && (p.subCategory === selectedSubCategory || p.name.toUpperCase().includes(selectedSubCategory));
+      }
+      return p.category === 'RAMOS' || p.category.includes('RAMO');
+    }
+
+    return p.category.includes(selectedCategory);
+  });
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const categories = ['Todos', 'Ramos', 'Desayunos', 'Peluches', 'Mensajes', 'Especiales'];
+
+  // Categorías Principales solicitadas
+  const categories = [
+    { id: 'TODOS', label: 'TODOS' },
+    { id: 'RAMOS', label: 'RAMOS', hasSubmenu: true },
+    { id: 'DESAYUNOS', label: 'DESAYUNOS' },
+    { id: 'PELUCHES', label: 'PELUCHES' },
+    { id: 'CHOCOLATES', label: 'CHOCOLATES' },
+    { id: 'GLOBOS', label: 'GLOBOS' },
+    { id: 'CORONAS', label: 'CORONAS' },
+    { id: 'MARIPOSAS', label: 'MARIPOSAS' },
+    { id: 'ESPECIALES', label: 'ESPECIALES' }
+  ];
+
+  const ramosSubcategories = [
+    { id: null, label: 'VER TODOS LOS RAMOS' },
+    { id: 'NATURALES', label: 'RAMOS NATURALES' },
+    { id: 'ETERNOS', label: 'RAMOS ETERNOS' },
+    { id: 'FUNEBRES', label: 'RAMOS FÚNEBRES' }
+  ];
 
   const handleFinalizePayment = async (e) => {
     e.preventDefault();
@@ -117,18 +138,15 @@ export function ClientView() {
 
     setIsProcessing(true);
     try {
-      const formattedItems = cart.map((item) => {
-        const itemTitle = item.title || item.name || 'Arreglo Floral';
-        return {
-          id: item.id || '',
-          title: itemTitle,
-          name: itemTitle,
-          quantity: Number(item.quantity) || 1,
-          price: Number(item.price) || 0,
-          image: item.image || (item.images && item.images[0]) || '',
-          images: item.images && item.images.length > 0 ? item.images : [item.image]
-        };
-      });
+      const formattedItems = cart.map((item) => ({
+        id: item.id || '',
+        title: item.title || item.name,
+        name: item.title || item.name,
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.price) || 0,
+        image: item.image || (item.images && item.images[0]) || '',
+        images: item.images && item.images.length > 0 ? item.images : [item.image]
+      }));
 
       const orderData = {
         items: formattedItems,
@@ -149,7 +167,6 @@ export function ClientView() {
 
       updateCart([]);
       setShowCheckoutModal(false);
-
       setCustomerName('');
       setCustomerPhone('');
       setDeliveryAddress('');
@@ -157,108 +174,159 @@ export function ClientView() {
 
       navigate(`/rastreo/${docRef.id}`);
     } catch (error) {
-      console.error('Error al procesar la venta:', error);
-      alert('Error al registrar la transacción en la base de datos.');
+      console.error('Error al procesar venta:', error);
+      alert('Error al procesar la venta en la base de datos.');
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="container-fluid px-4 py-4">
-      {/* Encabezado del Catálogo */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-        <div>
-          <h2 className="fw-bold mb-0 text-dark">Catálogo de Productos</h2>
-          <p className="text-muted small mb-0">Selecciona tus arreglos florales y detalles favoritos</p>
+    <div className="bg-dark text-white min-vh-100 pb-5" style={{ backgroundColor: '#121212' }}>
+      
+     {/* BANNER HERO DE BIENVENIDA */}
+<div className="bg-black py-5 px-3 text-center border-bottom border-success border-opacity-25 shadow">
+  <div className="container" style={{ maxWidth: '850px' }}>
+    <img
+      src="/logotipo.jpeg"
+      alt="Floristería Isis Logo"
+      className="rounded-circle border border-2 border-success shadow-lg mb-3"
+      style={{ width: '130px', height: '130px', objectFit: 'cover' }}
+    />
+    <h1 className="fw-bold display-5 text-success mb-2 text-uppercase tracking-wider">
+      ¡Bienvenidos a Floristería Isis!
+    </h1>
+    <h3 className="fs-4 text-light fw-normal mb-3">
+      ¿En qué te podemos servir hoy?
+    </h3>
+    <p className="text-secondary fs-6 text-uppercase fw-semibold tracking-wide border-top border-secondary pt-3 d-inline-block">
+      Este es nuestro despliegue de servicios de nuestra tienda
+    </p>
+  </div>
+</div>
+
+      <div className="container-fluid px-4 py-4">
+        {/* ENCABEZADO PUNTO DE VENTA CAJA */}
+        {isCajaOrAdmin && (
+          <div className="d-flex justify-content-end mb-3">
+            <span className="badge bg-success fs-6 px-4 py-2 rounded-pill shadow">
+              <i className="bi bi-cash-register me-2"></i> Modo Punto de Venta (Caja)
+            </span>
+          </div>
+        )}
+
+        {/* MENÚ DE CATEGORÍAS PRINCIPAL */}
+        <div className="d-flex flex-wrap justify-content-center gap-2 mb-3">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              className={`btn ${
+                selectedCategory === cat.id
+                  ? 'btn-success fw-bold shadow-lg'
+                  : 'btn-outline-light border-secondary text-light'
+              } rounded-pill px-4 py-2 text-uppercase font-semibold`}
+              onClick={() => {
+                setSelectedCategory(cat.id);
+                setSelectedSubCategory(null);
+              }}
+            >
+              {cat.label} {cat.hasSubmenu && <i className="bi bi-chevron-down ms-1"></i>}
+            </button>
+          ))}
         </div>
 
-        {isCajaOrAdmin && (
-          <span className="badge bg-success fs-6 px-3 py-2 rounded-pill shadow-sm">
-            <i className="bi bi-cash-register me-1"></i> Punto de Venta (Caja Registradora)
-          </span>
+        {/* SUBMENÚ DESPLEGABLE PARA RAMOS */}
+        {selectedCategory === 'RAMOS' && (
+          <div className="bg-black p-3 rounded-4 border border-success border-opacity-50 mb-4 max-w-2xl mx-auto text-center shadow">
+            <small className="text-success fw-bold text-uppercase d-block mb-2">
+              <i className="bi bi-flower1 me-1"></i> Selecciona la variedad de Ramos:
+            </small>
+            <div className="d-flex flex-wrap justify-content-center gap-2">
+              {ramosSubcategories.map((sub) => (
+                <button
+                  key={sub.label}
+                  type="button"
+                  className={`btn btn-sm ${
+                    selectedSubCategory === sub.id
+                      ? 'btn-warning text-dark fw-bold'
+                      : 'btn-outline-success text-white'
+                  } rounded-pill px-3`}
+                  onClick={() => setSelectedSubCategory(sub.id)}
+                >
+                  {sub.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* GRID DE PRODUCTOS EN MODO OSCURO (4 Columnas) */}
+        {loading ? (
+          <div className="text-center py-5">
+            <div className="spinner-border text-success" role="status"></div>
+            <p className="mt-2 text-muted">Cargando arreglos florales...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-5 bg-black rounded-4 border border-secondary my-4">
+            <i className="bi bi-flower2 display-3 text-secondary d-block mb-2"></i>
+            <h5 className="text-muted">No hay productos disponibles en esta sección por el momento.</h5>
+          </div>
+        ) : (
+          <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 mt-1">
+            {filteredProducts.map((p) => (
+              <div className="col" key={p.id}>
+                <div
+                  className="card h-100 border-secondary bg-black rounded-4 overflow-hidden shadow-lg transition-all"
+                  style={{ backgroundColor: '#181818' }}
+                >
+                  <Link to={`/producto/${p.id}`}>
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      className="card-img-top"
+                      style={{ height: '230px', objectFit: 'cover' }}
+                    />
+                  </Link>
+                  <div className="card-body d-flex flex-column justify-content-between p-3">
+                    <div>
+                      <Link to={`/producto/${p.id}`} className="text-decoration-none text-white">
+                        <h6 className="fw-bold mb-1 text-light fs-6">{p.name}</h6>
+                      </Link>
+                      <p className="text-success fw-bold fs-5 mb-2">
+                        ${p.price.toLocaleString('es-CO')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline-success text-white btn-sm w-100 rounded-3 fw-bold py-2 mt-2"
+                      onClick={() => addToCart(p)}
+                    >
+                      <i className="bi bi-cart-plus me-1"></i> Agregar al Carrito
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Categorías */}
-      <div className="d-flex flex-wrap gap-2 mb-4">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            className={`btn btn-sm ${
-              selectedCategory === cat ? 'btn-danger fw-bold shadow-sm' : 'btn-outline-danger'
-            } rounded-pill px-4 py-2`}
-            onClick={() => setSelectedCategory(cat)}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Grid de Productos Completo (4 columnas) */}
-      {loading ? (
-        <div className="text-center py-5">
-          <div className="spinner-border text-danger" role="status"></div>
-          <p className="mt-2 text-muted">Cargando catálogo de productos...</p>
-        </div>
-      ) : filteredProducts.length === 0 ? (
-        <div className="text-center py-5 bg-light rounded-4 border">
-          <p className="text-muted mb-0">No hay productos disponibles en esta categoría.</p>
-        </div>
-      ) : (
-        <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-          {filteredProducts.map((p) => (
-            <div className="col" key={p.id}>
-              <div className="card h-100 border-0 shadow-sm rounded-4 overflow-hidden card-hover">
-                <Link to={`/producto/${p.id}`}>
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="card-img-top"
-                    style={{ height: '220px', objectFit: 'cover' }}
-                  />
-                </Link>
-                <div className="card-body d-flex flex-column justify-content-between p-3">
-                  <div>
-                    <Link to={`/producto/${p.id}`} className="text-decoration-none text-dark">
-                      <h6 className="fw-bold mb-1">{p.name}</h6>
-                    </Link>
-                    <p className="text-danger fw-bold fs-5 mb-2">
-                      ${p.price.toLocaleString('es-CO')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger btn-sm w-100 rounded-3 fw-bold py-2 mt-2"
-                    onClick={() => addToCart(p)}
-                  >
-                    <i className="bi bi-cart-plus me-1"></i> Agregar al Carrito
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* MENÚ LATERAL DESLIZANTE DEL CARRITO (OFFCANVAS) */}
+      {/* OFFCANVAS / CARRITO EN MODO OSCURO */}
       <div
-        className="offcanvas offcanvas-end rounded-start-4 border-0 shadow-lg"
+        className="offcanvas offcanvas-end bg-black text-white border-start border-secondary"
         tabIndex="-1"
         id="cartOffcanvas"
-        aria-labelledby="cartOffcanvasLabel"
       >
-        <div className="offcanvas-header bg-dark text-white p-3">
-          <h5 className="offcanvas-title fw-bold d-flex align-items-center gap-2" id="cartOffcanvasLabel">
-            <i className="bi bi-cart3 text-danger"></i>
+        <div className="offcanvas-header bg-dark border-bottom border-secondary p-3">
+          <h5 className="offcanvas-title fw-bold text-success d-flex align-items-center gap-2">
+            <i className="bi bi-cart3"></i>
             <span>Carrito de Compras</span>
           </h5>
           <button
             type="button"
             className="btn-close btn-close-white"
             data-bs-dismiss="offcanvas"
-            aria-label="Close"
           ></button>
         </div>
 
@@ -266,14 +334,14 @@ export function ClientView() {
           {cart.length === 0 ? (
             <div className="text-center py-5 my-auto text-muted">
               <i className="bi bi-cart-x display-1 text-secondary d-block mb-3"></i>
-              <h5 className="fw-bold">El carrito está vacío</h5>
-              <p className="small">Agrega productos del catálogo para realizar tu compra.</p>
+              <h5 className="fw-bold text-light">Tu carrito está vacío</h5>
+              <p className="small">Elige los arreglos de Floristería Isis para agregarlos.</p>
             </div>
           ) : (
             <>
               <div className="d-flex flex-column gap-2 overflow-auto mb-3 pe-1">
                 {cart.map((item) => (
-                  <div key={item.id} className="d-flex align-items-center justify-content-between bg-light p-2 rounded-3 border">
+                  <div key={item.id} className="d-flex align-items-center justify-content-between bg-dark p-2 rounded-3 border border-secondary">
                     <div className="d-flex align-items-center gap-3">
                       <img
                         src={item.image}
@@ -282,8 +350,8 @@ export function ClientView() {
                         style={{ width: '50px', height: '50px', objectFit: 'cover' }}
                       />
                       <div>
-                        <h6 className="mb-0 fw-bold text-dark fs-6">{item.name}</h6>
-                        <small className="text-muted">
+                        <h6 className="mb-0 fw-bold text-white fs-6">{item.name}</h6>
+                        <small className="text-success fw-bold">
                           {item.quantity} x ${item.price.toLocaleString('es-CO')}
                         </small>
                       </div>
@@ -292,7 +360,6 @@ export function ClientView() {
                       type="button"
                       className="btn btn-sm btn-link text-danger p-1 text-decoration-none fw-bold fs-5"
                       onClick={() => removeFromCart(item.id)}
-                      title="Eliminar producto"
                     >
                       ✕
                     </button>
@@ -300,15 +367,15 @@ export function ClientView() {
                 ))}
               </div>
 
-              <div className="border-top pt-3">
+              <div className="border-top border-secondary pt-3">
                 <div className="d-flex justify-content-between align-items-center fw-bold mb-3">
-                  <span className="fs-5">Total:</span>
-                  <span className="text-danger fs-4">${cartTotal.toLocaleString('es-CO')}</span>
+                  <span className="fs-5 text-light">Total:</span>
+                  <span className="text-success fs-4">${cartTotal.toLocaleString('es-CO')}</span>
                 </div>
 
                 <button
                   type="button"
-                  className="btn btn-danger w-100 fw-bold py-3 rounded-3 shadow-sm fs-6"
+                  className="btn btn-success w-100 fw-bold py-3 rounded-3 shadow fs-6 text-uppercase"
                   onClick={handleOpenCheckout}
                 >
                   <i className="bi bi-credit-card-2-front me-2"></i>
@@ -325,14 +392,14 @@ export function ClientView() {
         <div
           className="modal fade show d-block"
           tabIndex="-1"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1070 }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)', zIndex: 1070 }}
           onClick={() => setShowCheckoutModal(false)}
         >
           <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content rounded-4 border-0 shadow-lg">
-              <div className="modal-header bg-dark text-white p-3">
-                <h5 className="modal-title fw-bold">
-                  <i className="bi bi-shield-check text-success me-2"></i>
+            <div className="modal-content bg-dark text-white rounded-4 border border-secondary shadow-lg">
+              <div className="modal-header bg-black border-bottom border-secondary p-3">
+                <h5 className="modal-title fw-bold text-success">
+                  <i className="bi bi-shield-check me-2"></i>
                   Pasarela de Pago y Datos de Entrega
                 </h5>
                 <button
@@ -346,7 +413,7 @@ export function ClientView() {
                 <div className="modal-body p-4">
                   <div className="row g-3">
                     <div className="col-12">
-                      <label className="form-label fw-bold text-dark">
+                      <label className="form-label fw-bold text-light">
                         1. Selecciona el Método de Pago:
                       </label>
                       <div className="row g-2">
@@ -354,7 +421,7 @@ export function ClientView() {
                           <button
                             type="button"
                             className={`btn w-100 p-3 text-start border-2 rounded-3 ${
-                              paymentMethod === 'TRANSFERENCIA' ? 'btn-outline-danger active fw-bold' : 'btn-outline-secondary'
+                              paymentMethod === 'TRANSFERENCIA' ? 'btn-success text-white fw-bold' : 'btn-outline-secondary text-light'
                             }`}
                             onClick={() => setPaymentMethod('TRANSFERENCIA')}
                           >
@@ -367,7 +434,7 @@ export function ClientView() {
                           <button
                             type="button"
                             className={`btn w-100 p-3 text-start border-2 rounded-3 ${
-                              paymentMethod === 'TARJETA' ? 'btn-outline-danger active fw-bold' : 'btn-outline-secondary'
+                              paymentMethod === 'TARJETA' ? 'btn-success text-white fw-bold' : 'btn-outline-secondary text-light'
                             }`}
                             onClick={() => setPaymentMethod('TARJETA')}
                           >
@@ -381,7 +448,7 @@ export function ClientView() {
                             <button
                               type="button"
                               className={`btn w-100 p-3 text-start border-2 rounded-3 ${
-                                paymentMethod === 'EFECTIVO' ? 'btn-success fw-bold text-white' : 'btn-outline-success'
+                                paymentMethod === 'EFECTIVO' ? 'btn-warning fw-bold text-dark' : 'btn-outline-warning text-warning'
                               }`}
                               onClick={() => {
                                 setPaymentMethod('EFECTIVO');
@@ -397,14 +464,14 @@ export function ClientView() {
                     </div>
 
                     <div className="col-12 mt-4">
-                      <label className="form-label fw-bold text-dark">
+                      <label className="form-label fw-bold text-light">
                         2. Tipo de Entrega:
                       </label>
                       <div className="d-flex gap-2">
                         <button
                           type="button"
                           className={`btn rounded-pill px-4 fw-bold ${
-                            deliveryType === 'DOMICILIO' ? 'btn-danger' : 'btn-outline-secondary'
+                            deliveryType === 'DOMICILIO' ? 'btn-success' : 'btn-outline-secondary text-light'
                           }`}
                           onClick={() => setDeliveryType('DOMICILIO')}
                         >
@@ -413,7 +480,7 @@ export function ClientView() {
                         <button
                           type="button"
                           className={`btn rounded-pill px-4 fw-bold ${
-                            deliveryType === 'TIENDA' ? 'btn-danger' : 'btn-outline-secondary'
+                            deliveryType === 'TIENDA' ? 'btn-success' : 'btn-outline-secondary text-light'
                           }`}
                           onClick={() => setDeliveryType('TIENDA')}
                         >
@@ -423,10 +490,10 @@ export function ClientView() {
                     </div>
 
                     <div className="col-md-6 mt-3">
-                      <label className="form-label small fw-bold">Nombre del Cliente / Destinatario:</label>
+                      <label className="form-label small fw-bold text-light">Nombre del Cliente / Destinatario:</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="form-control bg-black text-white border-secondary"
                         placeholder="Ej: Cliente Mostrador / María Gómez"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
@@ -434,10 +501,10 @@ export function ClientView() {
                     </div>
 
                     <div className="col-md-6 mt-3">
-                      <label className="form-label small fw-bold">Teléfono de Contacto:</label>
+                      <label className="form-label small fw-bold text-light">Teléfono de Contacto:</label>
                       <input
                         type="tel"
-                        className="form-control"
+                        className="form-control bg-black text-white border-secondary"
                         placeholder="Ej: 3101234567"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
@@ -446,10 +513,10 @@ export function ClientView() {
 
                     {deliveryType === 'DOMICILIO' && (
                       <div className="col-12 mt-2">
-                        <label className="form-label small fw-bold">Dirección de Entrega:</label>
+                        <label className="form-label small fw-bold text-light">Dirección de Entrega:</label>
                         <input
                           type="text"
-                          className="form-control"
+                          className="form-control bg-black text-white border-secondary"
                           placeholder="Ej: Carrera 5 # 10-20 Barrio Centro"
                           value={deliveryAddress}
                           onChange={(e) => setDeliveryAddress(e.target.value)}
@@ -459,9 +526,9 @@ export function ClientView() {
                     )}
 
                     <div className="col-12 mt-2">
-                      <label className="form-label small fw-bold">Nota o Dedicatoria para la Tarjeta (Opcional):</label>
+                      <label className="form-label small fw-bold text-light">Nota o Dedicatoria para la Tarjeta (Opcional):</label>
                       <textarea
-                        className="form-control"
+                        className="form-control bg-black text-white border-secondary"
                         rows="2"
                         placeholder="Ej: ¡Feliz aniversario de parte de la familia!"
                         value={customNote}
@@ -470,10 +537,10 @@ export function ClientView() {
                     </div>
                   </div>
 
-                  <div className="bg-light p-3 rounded-3 mt-4 d-flex justify-content-between align-items-center">
+                  <div className="bg-black p-3 rounded-3 mt-4 border border-secondary d-flex justify-content-between align-items-center">
                     <div>
-                      <small className="text-muted d-block">Total Cobrado:</small>
-                      <span className="fs-4 fw-bold text-danger">${cartTotal.toLocaleString('es-CO')}</span>
+                      <small className="text-muted d-block">Total a Pagar:</small>
+                      <span className="fs-4 fw-bold text-success">${cartTotal.toLocaleString('es-CO')}</span>
                     </div>
                     <span className="badge bg-secondary px-3 py-2">
                       Método: {paymentMethod === 'EFECTIVO' ? '💵 Efectivo (Caja)' : paymentMethod === 'TARJETA' ? '💳 Tarjeta' : '📲 Transferencia'}
@@ -481,17 +548,17 @@ export function ClientView() {
                   </div>
                 </div>
 
-                <div className="modal-footer bg-light p-3">
+                <div className="modal-footer bg-black border-top border-secondary p-3">
                   <button
                     type="button"
-                    className="btn btn-outline-secondary rounded-3"
+                    className="btn btn-outline-secondary text-light rounded-3"
                     onClick={() => setShowCheckoutModal(false)}
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className={`btn ${paymentMethod === 'EFECTIVO' ? 'btn-success' : 'btn-danger'} rounded-3 px-4 fw-bold`}
+                    className="btn btn-success rounded-3 px-4 fw-bold text-uppercase"
                     disabled={isProcessing}
                   >
                     {isProcessing ? 'Enviando a Taller...' : 'Confirmar Venta y Enviar a Taller'}
