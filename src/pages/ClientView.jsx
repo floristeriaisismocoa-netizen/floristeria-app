@@ -45,7 +45,6 @@ export function ClientView() {
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
 
-  // Opciones Dinámicas de Fecha
   const getAvailableDates = () => {
     const dates = [];
     const today = new Date();
@@ -59,6 +58,19 @@ export function ClientView() {
     }
     return dates;
   };
+
+  // Escuchar evento global para abrir el carrito automáticamente
+  useEffect(() => {
+    const handleOpenCartEvent = () => {
+      const toggleBtn = document.querySelector('[data-bs-target="#cartOffcanvas"]');
+      if (toggleBtn) {
+        toggleBtn.click();
+      }
+    };
+
+    window.addEventListener('openCart', handleOpenCartEvent);
+    return () => window.removeEventListener('openCart', handleOpenCartEvent);
+  }, []);
 
   useEffect(() => {
     const handlePopState = (event) => {
@@ -154,16 +166,16 @@ export function ClientView() {
     setShowCheckoutModal(true);
   };
 
+  // Filtrado estricto de productos
   const filteredProducts = selectedCategory
     ? products.filter((p) => {
         if (selectedCategory === 'RAMOS') {
-          if (selectedSubCategory) {
-            return (
-              p.category === 'RAMOS' &&
-              (p.subCategory === selectedSubCategory || p.name.toUpperCase().includes(selectedSubCategory))
-            );
-          }
-          return p.category === 'RAMOS' || p.category.includes('RAMO');
+          // Si no hay subcategoría seleccionada en RAMOS, no se muestra ningún producto aún
+          if (!selectedSubCategory) return false;
+          return (
+            p.category === 'RAMOS' &&
+            (p.subCategory === selectedSubCategory || p.name.toUpperCase().includes(selectedSubCategory))
+          );
         }
         return p.category.includes(selectedCategory);
       })
@@ -305,7 +317,7 @@ export function ClientView() {
             </div>
           </div>
         ) : (
-          /* VISTA DE PRODUCTOS SIN BOTÓN AGREGAR EN TARJETA */
+          /* VISTA DE PRODUCTOS */
           <div>
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary gap-2">
               <button
@@ -317,25 +329,26 @@ export function ClientView() {
               </button>
 
               <h3 className="fw-bold text-success text-uppercase mb-0">
-                Servicio: {selectedCategory}
+                Servicio: {selectedCategory} {selectedSubCategory ? `- ${selectedSubCategory}` : ''}
               </h3>
             </div>
 
+            {/* SI SELECCIONÓ RAMOS: MOSTRAR MÓDULO EXCLUSIVO DE SUBCATEGORÍAS PRIMERO */}
             {selectedCategory === 'RAMOS' && (
-              <div className="bg-black p-3 rounded-4 border border-success border-opacity-50 mb-4 max-w-2xl mx-auto text-center shadow">
-                <small className="text-success fw-bold text-uppercase d-block mb-2">
-                  <i className="bi bi-flower1 me-1"></i> Selecciona la variedad de Ramos:
+              <div className="bg-black p-4 rounded-4 border border-success border-opacity-50 mb-4 max-w-2xl mx-auto text-center shadow">
+                <small className="text-success fw-bold text-uppercase d-block mb-3 fs-6">
+                  <i className="bi bi-flower1 me-1"></i> Selecciona la variedad de Ramos que deseas consultar:
                 </small>
-                <div className="d-flex flex-wrap justify-content-center gap-2">
+                <div className="d-flex flex-wrap justify-content-center gap-3">
                   {ramosSubcategories.map((sub) => (
                     <button
                       key={sub.label}
                       type="button"
-                      className={`btn btn-sm ${
+                      className={`btn ${
                         selectedSubCategory === sub.id
-                          ? 'btn-warning text-dark fw-bold shadow'
+                          ? 'btn-warning text-dark fw-bold shadow-lg scale-105'
                           : 'btn-outline-success text-white'
-                      } rounded-pill px-3`}
+                      } rounded-pill px-4 py-2 text-uppercase fw-semibold`}
                       onClick={() => {
                         setSelectedSubCategory(sub.id);
                         window.history.pushState({ category: 'RAMOS', subCategory: sub.id }, '', '');
@@ -353,6 +366,13 @@ export function ClientView() {
               <div className="text-center py-5">
                 <div className="spinner-border text-success" role="status"></div>
                 <p className="mt-2 text-muted">Cargando productos...</p>
+              </div>
+            ) : selectedCategory === 'RAMOS' && !selectedSubCategory ? (
+              /* MENSAJE DE INDICACIÓN CUANDO AÚN NO HA SELECCIONADO SUBCATEGORÍA DE RAMOS */
+              <div className="text-center py-5 bg-black rounded-4 border border-secondary my-4">
+                <i className="bi bi-hand-index-thumb display-3 text-success d-block mb-2"></i>
+                <h5 className="text-light fw-bold">Por favor selecciona una variedad de Ramos arriba</h5>
+                <p className="text-muted small">Haz clic en Ramos Naturales, Eternos o Fúnebres para desplegar la colección.</p>
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-5 bg-black rounded-4 border border-secondary my-4">
@@ -471,7 +491,7 @@ export function ClientView() {
         </div>
       </div>
 
-      {/* MODAL CHECKOUT LIMPIO, AMPLIO Y ELEGANTE ESTILO E-COMMERCE */}
+      {/* MODAL CHECKOUT LIMPIO Y ELEGANTE */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"
@@ -482,7 +502,6 @@ export function ClientView() {
           <div className="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content bg-white text-dark rounded-4 border-0 shadow-lg overflow-hidden">
               
-              {/* ENCABEZADO CLARO Y ESPACIOSO */}
               <div className="modal-header bg-white border-bottom p-4 flex-column align-items-stretch">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <span className="text-secondary fw-semibold cursor-pointer" onClick={() => setShowCheckoutModal(false)}>
@@ -495,7 +514,6 @@ export function ClientView() {
                   ></button>
                 </div>
 
-                {/* INDICADOR DE PASOS 1 -> 2 -> 3 -> 4 */}
                 <div className="d-flex justify-content-center align-items-center gap-3 gap-md-5 pt-2">
                   {[
                     { num: 1, label: 'RECOMENDACIONES' },
@@ -517,12 +535,9 @@ export function ClientView() {
 
               <div className="modal-body p-4 p-md-5 bg-light">
                 <div className="row g-4 g-lg-5">
-                  
-                  {/* COLUMNA IZQUIERDA FORMULARIO PRINCIPAL */}
                   <div className="col-lg-8">
                     <div className="bg-white p-4 p-md-5 rounded-4 border shadow-sm">
 
-                      {/* PASO 1: RECOMENDACIONES (VENTA CRUZADA) */}
                       {checkoutStep === 1 && (
                         <div>
                           <h3 className="fw-bold text-dark mb-1">Antes de continuar, agrega...</h3>
@@ -565,7 +580,6 @@ export function ClientView() {
                         </div>
                       )}
 
-                      {/* PASO 2: REMITENTE */}
                       {checkoutStep === 2 && (
                         <div>
                           <h4 className="fw-bold text-dark mb-4 text-uppercase">DATOS DEL REMITENTE</h4>
@@ -595,7 +609,6 @@ export function ClientView() {
                               </select>
                             </div>
 
-                            {/* SELECTOR DE TIPO DE DOCUMENTO CON LAS 4 OPCIONES EXACTAS */}
                             <div className="col-12 mt-3">
                               <label className="form-label small fw-bold text-muted text-uppercase mb-1">DOCUMENTO DE IDENTIDAD</label>
                               <div className="input-group">
@@ -670,7 +683,6 @@ export function ClientView() {
                         </div>
                       )}
 
-                      {/* PASO 3: DESTINATARIO */}
                       {checkoutStep === 3 && (
                         <div>
                           <h4 className="fw-bold text-dark mb-4 text-uppercase">DATOS DEL DESTINATARIO</h4>
@@ -747,7 +759,6 @@ export function ClientView() {
                         </div>
                       )}
 
-                      {/* PASO 4: REALIZAR PAGO */}
                       {checkoutStep === 4 && (
                         <div>
                           <h4 className="fw-bold text-dark mb-4 text-uppercase">SELECCIONA EL MÉTODO DE PAGO</h4>
@@ -824,7 +835,7 @@ export function ClientView() {
                     </div>
                   </div>
 
-                  {/* RESUMEN LATERAL ELEGANTE Y ESPACIOSO */}
+                  {/* RESUMEN LATERAL */}
                   <div className="col-lg-4">
                     <div className="bg-white p-4 rounded-4 border shadow-sm sticky-top" style={{ top: '20px' }}>
                       <div className="d-flex flex-column gap-3 mb-4 max-h-60 overflow-auto">

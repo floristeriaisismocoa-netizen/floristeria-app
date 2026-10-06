@@ -10,7 +10,6 @@ export function ProductDetailView() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [added, setAdded] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeToProducts((products) => {
@@ -74,23 +73,8 @@ export function ProductDetailView() {
     localStorage.setItem('floristeria_cart', JSON.stringify(savedCart));
     window.dispatchEvent(new Event('cartUpdated'));
 
-    setAdded(true);
-
-    // Desplegar automáticamente el Carrito Offcanvas
-    setTimeout(() => {
-      const cartElement = document.getElementById('cartOffcanvas');
-      if (cartElement) {
-        if (window.bootstrap && window.bootstrap.Offcanvas) {
-          const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(cartElement) || new window.bootstrap.Offcanvas(cartElement);
-          bsOffcanvas.show();
-        } else {
-          const toggleBtn = document.querySelector('[data-bs-target="#cartOffcanvas"]');
-          if (toggleBtn) toggleBtn.click();
-        }
-      }
-    }, 100);
-
-    setTimeout(() => setAdded(false), 2000);
+    // Emitir evento para abrir el carrito Offcanvas de inmediato
+    window.dispatchEvent(new Event('openCart'));
   };
 
   return (
@@ -204,8 +188,8 @@ export function ProductDetailView() {
                 className="btn btn-success w-100 py-3 rounded-3 fw-bold text-uppercase shadow-lg d-flex align-items-center justify-content-center gap-2 fs-6"
                 onClick={handleAddToCart}
               >
-                <i className={`bi ${added ? 'bi-check-circle-fill' : 'bi-cart-plus-fill'} fs-5`}></i>
-                <span>{added ? '¡Agregado al Carrito!' : 'Agregar al Carrito'}</span>
+                <i className="bi bi-cart-plus-fill fs-5"></i>
+                <span>Agregar al Carrito</span>
               </button>
             </div>
           </div>
