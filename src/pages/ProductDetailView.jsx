@@ -32,6 +32,41 @@ export function ProductDetailView() {
     return () => unsubscribe && unsubscribe();
   }, [id]);
 
+  const handleAddToCart = () => {
+    if (!product) return;
+
+    const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
+    const existingIndex = savedCart.findIndex((item) => item.id === product.id);
+
+    const itemToAdd = {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.images[0]
+    };
+
+    if (existingIndex > -1) {
+      savedCart[existingIndex].quantity += quantity;
+    } else {
+      savedCart.push({ ...itemToAdd, quantity });
+    }
+
+    localStorage.setItem('floristeria_cart', JSON.stringify(savedCart));
+    window.dispatchEvent(new Event('cartUpdated'));
+
+    // Abrir automáticamente el Offcanvas del Carrito
+    const cartElement = document.getElementById('cartOffcanvas');
+    if (cartElement) {
+      if (window.bootstrap && window.bootstrap.Offcanvas) {
+        const bsOffcanvas = window.bootstrap.Offcanvas.getOrCreateInstance(cartElement);
+        bsOffcanvas.show();
+      } else {
+        const triggerBtn = document.getElementById('desktopCartTrigger') || document.getElementById('mobileCartTrigger');
+        if (triggerBtn) triggerBtn.click();
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-dark min-vh-100 d-flex flex-column align-items-center justify-content-center text-center py-5">
@@ -52,33 +87,6 @@ export function ProductDetailView() {
       </div>
     );
   }
-
-  const handleAddToCart = () => {
-    const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
-    const existingIndex = savedCart.findIndex((item) => item.id === product.id);
-
-    const itemToAdd = {
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.images[0]
-    };
-
-    if (existingIndex > -1) {
-      savedCart[existingIndex].quantity += quantity;
-    } else {
-      savedCart.push({ ...itemToAdd, quantity });
-    }
-
-    localStorage.setItem('floristeria_cart', JSON.stringify(savedCart));
-    window.dispatchEvent(new Event('cartUpdated'));
-
-    // Gatillar la apertura inmediata del carrito
-    const triggerBtn = document.getElementById('desktopCartTrigger') || document.getElementById('mobileCartTrigger') || document.querySelector('[data-bs-target="#cartOffcanvas"]');
-    if (triggerBtn) {
-      triggerBtn.click();
-    }
-  };
 
   return (
     <div className="bg-dark text-white min-vh-100 py-4" style={{ backgroundColor: '#121212' }}>
