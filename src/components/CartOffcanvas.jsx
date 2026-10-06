@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { subscribeToProducts } from '../services/productsService';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -130,6 +130,32 @@ export function CartOffcanvas() {
     setShowCheckoutModal(true);
   };
 
+  // Función para obtener el siguiente número consecutivo con formato J-X
+  const getNextOrderNumber = async () => {
+    try {
+      const ordersRef = collection(db, 'orders');
+      const q = query(ordersRef, orderBy('createdAt', 'desc'), limit(10));
+      const querySnapshot = await getDocs(q);
+
+      let maxSeq = -1;
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.orderNumber && typeof data.orderNumber === 'string' && data.orderNumber.startsWith('J-')) {
+          const num = parseInt(data.orderNumber.replace('J-', ''), 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      });
+
+      const nextSeq = maxSeq + 1;
+      return `J-${nextSeq}`;
+    } catch (err) {
+      console.error('Error calculando consecutivo:', err);
+      return `J-0`;
+    }
+  };
+
   const handleFinalizePayment = async (e) => {
     if (e) e.preventDefault();
     if (cart.length === 0) return;
@@ -145,7 +171,10 @@ export function CartOffcanvas() {
         image: item.image || ''
       }));
 
+      const newOrderNumber = await getNextOrderNumber();
+
       const orderData = {
+        orderNumber: newOrderNumber, // Guardamos el formato J-0, J-1, etc.
         items: formattedItems,
         total: cartTotal,
         paymentMethod,
@@ -174,6 +203,7 @@ export function CartOffcanvas() {
       updateCart([]);
       setShowCheckoutModal(false);
 
+      // Redirigir al rastreo
       navigate(`/rastreo/${docRef.id}`);
     } catch (error) {
       console.error('Error al procesar pedido:', error);
@@ -262,7 +292,7 @@ export function CartOffcanvas() {
         </div>
       </div>
 
-      {/* MODAL GLOBAL DE PROCESO DE COMPRA (PASO 1 A 4) */}
+      {/* MODAL CHECKOUT COMPLETO */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"

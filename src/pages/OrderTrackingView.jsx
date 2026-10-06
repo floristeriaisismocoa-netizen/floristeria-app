@@ -1,397 +1,209 @@
 // src/pages/OrderTrackingView.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { useAuth } from '../context/AuthContext';
-
-const STEPS = [
-  { key: 'PROCESANDO_PAGO', label: 'Procesando Pago', icon: 'bi-credit-card' },
-  { key: 'PENDIENTE_PREPARACION', label: 'Enviado a Taller', icon: 'bi-flower1' },
-  { key: 'EN_PREPARACION', label: 'Realizando el Detalle', icon: 'bi-scissors' },
-  { key: 'EN_CAMINO', label: 'En Reparto', icon: 'bi-truck' },
-  { key: 'ENTREGADO', label: 'Entregado Exitoso', icon: 'bi-check-circle-fill' }
-];
-
-const mapStatusToIndex = (status) => {
-  if (!status) return 0;
-  const s = status.toUpperCase();
-  if (s === 'PROCESANDO_PAGO' || s === 'PAGO_PENDIENTE') return 0;
-  if (s === 'PENDIENTE_PREPARACION' || s === 'EN_TALLER' || s === 'RECIBIDO') return 1;
-  if (s === 'EN_PREPARACION' || s === 'PREPARANDO') return 2;
-  if (s === 'EN_CAMINO' || s === 'LISTO_PARA_ENTREGA' || s === 'EN_REPARTO') return 3;
-  if (s === 'ENTREGADO' || s === 'ENTREGADO_EXITOSO' || s === 'COMPLETADO') return 4;
-  if (s === 'NO_ENTREGADO') return 4;
-  return 1;
-};
-
-const getStatusBadge = (status) => {
-  if (!status) return <span className="badge bg-secondary">Sin Estado</span>;
-  const s = status.toUpperCase();
-
-  if (s === 'NO_ENTREGADO') {
-    return (
-      <span className="badge bg-danger text-white rounded-pill px-3 py-2 fw-semibold">
-        <i className="bi bi-x-circle-fill me-1"></i>
-        Envío No Exitoso
-      </span>
-    );
-  }
-
-  const idx = mapStatusToIndex(status);
-  const step = STEPS[idx];
-  const colors = [
-    'bg-secondary text-white',
-    'bg-warning text-dark',
-    'bg-info text-dark',
-    'bg-primary text-white',
-    'bg-success text-white'
-  ];
-
-  return (
-    <span className={`badge ${colors[idx]} rounded-pill px-3 py-2 fw-semibold`}>
-      <i className={`bi ${step.icon} me-1`}></i>
-      {step.label}
-    </span>
-  );
-};
 
 export function OrderTrackingView() {
-  const { user, role } = useAuth();
-  const isAdmin = Boolean(user && role === 'admin');
-
-  const { orderId: urlOrderId } = useParams();
+  const { orderId } = useParams();
   const navigate = useNavigate();
 
-  const [searchId, setSearchId] = useState(urlOrderId || '');
-  const [currentOrderId, setCurrentOrderId] = useState(urlOrderId || '');
+  const [searchId, setSearchId] = useState(orderId || '');
   const [order, setOrder] = useState(null);
-  const [loadingOrder, setLoadingOrder] = useState(false);
-  const [orderError, setOrderError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const [allOrders, setAllOrders] = useState([]);
-  const [loadingAll, setLoadingAll] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('TODOS');
+  const fetchOrder = async (idToSearch) => {
+    if (!idToSearch) return;
+    setLoading(true);
+    setError('');
+    setOrder(null);
 
-  useEffect(() => {
-    if (!isAdmin) {
-      setAllOrders([]);
-      return;
-    }
+    try {
+      // 1. Intentar buscar por Document ID directo
+      const docRef = doc(db, 'orders', idToSearch.trim());
+      const docSnap = await getDoc(docRef);
 
-    setLoadingAll(true);
-    const ordersRef = collection(db, 'orders');
-    const q = query(ordersRef, orderBy('createdAt', 'desc'));
+      if (docSnap.exists()) {
+        setOrder({ id: docSnap.id, ...docSnap.data() });
+      } else {
+        // 2. Si no es un ID directo, buscar por orderNumber (ej: J-0)
+        const querySnapshot = await getDocs(collection(db, 'orders'));
+        let found = null;
+        querySnapshot.forEach((d) => {
+          const data = d.data();
+          if (
+            (data.orderNumber && data.orderNumber.toUpperCase() === idToSearch.trim().toUpperCase()) ||
+            d.id === idToSearch.trim()
+          ) {
+            found = { id: d.id, ...data };
+          }
+        });
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const ordersData = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data()
-        }));
-        setAllOrders(ordersData);
-        setLoadingAll(false);
-      },
-      (err) => {
-        console.error('Error al cargar lista global:', err);
-        setLoadingAll(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [isAdmin]);
-
-  useEffect(() => {
-    if (!currentOrderId) {
-      setOrder(null);
-      return;
-    }
-
-    setLoadingOrder(true);
-    setOrderError('');
-
-    const docRef = doc(db, 'orders', currentOrderId.trim());
-    const unsubscribe = onSnapshot(
-      docRef,
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setOrder({ id: docSnap.id, ...docSnap.data() });
-          setOrderError('');
+        if (found) {
+          setOrder(found);
         } else {
-          setOrder(null);
-          setOrderError('No se encontró ningún pedido con ese código ID.');
+          setError('No se encontró ningún pedido con esa referencia.');
         }
-        setLoadingOrder(false);
-      },
-      (err) => {
-        console.error('Error al consultar pedido:', err);
-        setOrderError('Error al consultar el pedido.');
-        setLoadingOrder(false);
       }
-    );
+    } catch (err) {
+      console.error('Error al consultar pedido:', err);
+      setError('Ocurrió un error al consultar el estado del pedido.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return () => unsubscribe();
-  }, [currentOrderId]);
+  useEffect(() => {
+    if (orderId) {
+      setSearchId(orderId);
+      fetchOrder(orderId);
+    }
+  }, [orderId]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!searchId.trim()) return;
-    const cleanId = searchId.trim();
-    setCurrentOrderId(cleanId);
-    navigate(`/rastreo/${cleanId}`, { replace: true });
+    if (searchId.trim()) {
+      navigate(`/rastreo/${searchId.trim()}`);
+    }
   };
 
-  const selectOrderFromList = (orderId) => {
-    setSearchId(orderId);
-    setCurrentOrderId(orderId);
-    navigate(`/rastreo/${orderId}`, { replace: true });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const steps = [
+    { key: 'PENDIENTE_PREPARACION', label: 'Procesando Pago', icon: '💳' },
+    { key: 'EN_PREPARACION', label: 'Enviado a Taller', icon: '🌺' },
+    { key: 'LISTO_PARA_ENTREGA', label: 'Realizando el Detalle', icon: '✂️' },
+    { key: 'EN_CAMINO', label: 'En Reparto', icon: '🚚' },
+    { key: 'ENTREGADO', label: 'Entregado Exitoso', icon: '✅' }
+  ];
+
+  const getStepIndex = (status) => {
+    switch (status) {
+      case 'PENDIENTE_PREPARACION': return 0;
+      case 'EN_PREPARACION': return 1;
+      case 'LISTO_PARA_ENTREGA': return 2;
+      case 'EN_CAMINO': return 3;
+      case 'ENTREGADO': return 4;
+      default: return 0;
+    }
   };
 
-  const filteredOrders = statusFilter === 'TODOS'
-    ? allOrders
-    : allOrders.filter((o) => {
-        if (statusFilter === 'NO_ENTREGADO') return o.status === 'NO_ENTREGADO';
-        return mapStatusToIndex(o.status) === Number(statusFilter);
-      });
-
-  const currentStepIndex = order ? mapStatusToIndex(order.status) : 0;
-  const isFailedOrder = order?.status === 'NO_ENTREGADO';
+  const currentStep = order ? getStepIndex(order.status) : 0;
 
   return (
-    <div className="container py-4" style={{ maxWidth: '1000px' }}>
-      <div className="text-center mb-4">
-        <h2 className="fw-bold text-dark">
-          <i className="bi bi-geo-alt-fill text-danger me-2"></i>
-          {isAdmin ? 'Panel General de Pedidos y Rastreo' : 'Rastrea tu Pedido en Tiempo Real'}
-        </h2>
-        <p className="text-muted">
-          {isAdmin
-            ? 'Visualiza el estado de todas las órdenes del sistema ordenadas cronológicamente.'
-            : 'Ingresa el código de tu orden para ver el estado de tu arreglo floral'}
-        </p>
-      </div>
-
-      <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
-        <form onSubmit={handleSearch} className="d-flex gap-2">
-          <input
-            type="text"
-            className="form-control form-control-lg rounded-pill px-4 fs-6"
-            placeholder="Ej: Qaq3Zs2sSf7lYetn8s3R o ID de orden..."
-            value={searchId}
-            onChange={(e) => setSearchId(e.target.value)}
-          />
-          <button type="submit" className="btn btn-danger btn-lg rounded-pill px-4 fw-bold fs-6 text-nowrap">
-            <i className="bi bi-search me-1"></i> Rastrear
-          </button>
-        </form>
-      </div>
-
-      {loadingOrder && (
-        <div className="text-center py-4">
-          <div className="spinner-border text-danger" role="status"></div>
-          <p className="mt-2 text-muted">Cargando información del pedido...</p>
+    <div className="bg-dark text-white min-vh-100 py-5" style={{ backgroundColor: '#121212' }}>
+      <div className="container" style={{ maxWidth: '900px' }}>
+        
+        {/* BUSCADOR DE PEDIDOS */}
+        <div className="card bg-black border-secondary rounded-4 p-4 shadow-lg mb-4">
+          <h4 className="fw-bold text-success text-center mb-3">🔍 Rastrear Estado de tu Pedido</h4>
+          <form onSubmit={handleSearch} className="d-flex gap-2 max-w-lg mx-auto">
+            <input
+              type="text"
+              className="form-control bg-dark text-white border-secondary rounded-pill px-4"
+              placeholder="Ingresa tu código de pedido (ej: J-0 o ID)"
+              value={searchId}
+              onChange={(e) => setSearchId(e.target.value)}
+            />
+            <button type="submit" className="btn btn-success rounded-pill px-4 fw-bold">
+              Buscar
+            </button>
+          </form>
         </div>
-      )}
 
-      {orderError && !loadingOrder && (
-        <div className="alert alert-warning text-center rounded-3 shadow-sm border-0 py-3 mb-4">
-          <i className="bi bi-exclamation-triangle-fill fs-4 text-warning d-block mb-1"></i>
-          {orderError}
-        </div>
-      )}
-
-      {order && !loadingOrder && (
-        <div className="bg-white rounded-4 shadow-sm p-4 border mb-5">
-          <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-2">
-            <div>
-              <span className="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle mb-1">
-                Detalle de Pedido
-              </span>
-              <h4 className="fw-bold mb-0">Pedido #{order.id}</h4>
-            </div>
-            <div className="text-end">
-              <small className="text-muted d-block mb-1">Estado actual:</small>
-              {getStatusBadge(order.status)}
-            </div>
+        {loading && (
+          <div className="text-center py-5">
+            <div className="spinner-border text-success" role="status"></div>
+            <p className="mt-2 text-muted">Consultando estado del pedido...</p>
           </div>
+        )}
 
-          <div className="py-4 position-relative px-2">
-            <div className="row g-2 text-center position-relative" style={{ zIndex: 1 }}>
-              {STEPS.map((step, idx) => {
-                const isCompleted = idx <= currentStepIndex;
-                const isCurrent = idx === currentStepIndex;
+        {error && (
+          <div className="alert alert-danger bg-black border-danger text-danger text-center rounded-4 p-4 shadow">
+            {error}
+          </div>
+        )}
 
-                return (
-                  <div key={step.key} className="col">
+        {order && (
+          <div className="card bg-white text-dark rounded-4 p-4 p-md-5 shadow-lg border-0">
+            
+            {/* ENCABEZADO CON EL CÓDIGO DE PEDIDO VISIBLE (J-0) */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom">
+              <div>
+                <span className="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle px-3 py-2 rounded-pill fw-bold mb-2">
+                  Detalle de Pedido
+                </span>
+                <h3 className="fw-bold text-dark mb-0">
+                  Pedido #{order.orderNumber || order.id.substring(0, 8)}
+                </h3>
+              </div>
+
+              <div className="text-end mt-2 mt-md-0">
+                <small className="text-muted d-block fw-bold">Estado actual:</small>
+                <span className="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold fs-6 shadow-sm">
+                  {order.status === 'PENDIENTE_PREPARACION' ? '⚙️ Procesando Pago' :
+                   order.status === 'EN_PREPARACION' ? '⚙️ Enviado a Taller' :
+                   order.status === 'LISTO_PARA_ENTREGA' ? '✂️ Realizando el Detalle' :
+                   order.status === 'EN_CAMINO' ? '🚚 En Reparto' : '✅ Entregado Exitoso'}
+                </span>
+              </div>
+            </div>
+
+            {/* LÍNEA DE TIEMPO DEL PEDIDO */}
+            <div className="row g-2 text-center py-4 my-2 position-relative">
+              {steps.map((st, idx) => (
+                <div key={st.key} className="col">
+                  <div className="d-flex flex-column align-items-center">
                     <div
-                      className={`rounded-circle mx-auto d-flex align-items-center justify-content-center shadow-sm mb-2 ${
-                        isFailedOrder && idx === currentStepIndex
-                          ? 'bg-danger text-white'
-                          : isCompleted
-                          ? 'bg-danger text-white'
-                          : 'bg-light text-muted border'
+                      className={`rounded-circle d-flex align-items-center justify-content-center mb-2 shadow ${
+                        idx <= currentStep ? 'bg-danger text-white' : 'bg-light text-muted border'
                       }`}
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        fontSize: '1.2rem',
-                        transition: 'all 0.3s ease',
-                        transform: isCurrent ? 'scale(1.15)' : 'scale(1)'
-                      }}
+                      style={{ width: '54px', height: '54px', fontSize: '22px' }}
                     >
-                      <i className={`bi ${isFailedOrder && idx === currentStepIndex ? 'bi-x-circle-fill' : step.icon}`}></i>
+                      {st.icon}
                     </div>
-                    <small
-                      className={`d-block lh-sm ${
-                        isCurrent
-                          ? 'fw-bold text-danger'
-                          : isCompleted
-                          ? 'fw-semibold text-dark'
-                          : 'text-muted'
-                      }`}
-                      style={{ fontSize: '0.78rem' }}
-                    >
-                      {isFailedOrder && idx === currentStepIndex ? 'Envío No Exitosa' : step.label}
+                    <small className={`fw-bold text-uppercase fs-7 ${idx <= currentStep ? 'text-danger' : 'text-muted'}`}>
+                      {st.label}
                     </small>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {isFailedOrder && order.deliveryFailureReason && (
-            <div className="alert alert-danger p-3 rounded-3 mb-4 border-0">
-              <strong className="d-block mb-1 fs-6">
-                <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                Novedad registrada durante la entrega:
-              </strong>
-              <p className="mb-0 fst-italic">"{order.deliveryFailureReason}"</p>
-            </div>
-          )}
-
-          <div className="bg-light rounded-3 p-3 mt-4">
-            <h6 className="fw-bold mb-3 text-secondary">Resumen del Pedido:</h6>
-            <div className="d-flex flex-column gap-2">
-              {order.items?.map((item, idx) => (
-                <div key={idx} className="d-flex justify-content-between align-items-center bg-white p-2 rounded border">
-                  <div className="d-flex align-items-center gap-2">
-                    {item.image && (
-                      <img
-                        src={item.image}
-                        alt={item.title || item.name}
-                        className="rounded"
-                        style={{ width: '45px', height: '45px', objectFit: 'cover' }}
-                      />
-                    )}
-                    <div>
-                      <p className="mb-0 fw-bold small">{item.title || item.name}</p>
-                      <small className="text-muted">Cantidad: {item.quantity}</small>
-                    </div>
-                  </div>
-                  <span className="fw-bold text-dark small">
-                    ${((item.price || 0) * item.quantity).toLocaleString('es-CO')}
-                  </span>
                 </div>
               ))}
             </div>
 
-            <div className="d-flex justify-content-between align-items-center fw-bold mt-3 pt-2 border-top">
-              <span>Total Orden:</span>
-              <span className="text-danger fs-5">${order.total?.toLocaleString('es-CO')}</span>
+            {/* RESUMEN DE ARTÍCULOS */}
+            <div className="bg-light p-4 rounded-4 mt-4 border">
+              <h5 className="fw-bold text-dark mb-3">Resumen del Pedido:</h5>
+              <div className="d-flex flex-column gap-3">
+                {order.items && order.items.map((item, idx) => (
+                  <div key={idx} className="d-flex align-items-center justify-content-between bg-white p-3 rounded-3 border">
+                    <div className="d-flex align-items-center gap-3">
+                      <img
+                        src={item.image || 'https://via.placeholder.com/60'}
+                        alt={item.name || item.title}
+                        className="rounded-3"
+                        style={{ width: '60px', height: '60px', objectFit: 'cover' }}
+                      />
+                      <div>
+                        <h6 className="fw-bold text-dark mb-1">{item.name || item.title}</h6>
+                        <small className="text-muted">Cantidad: {item.quantity}</small>
+                      </div>
+                    </div>
+                    <span className="fw-bold text-dark fs-6">
+                      ${(Number(item.price) * Number(item.quantity)).toLocaleString('es-CO')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="d-flex justify-content-between align-items-center border-top pt-3 mt-4">
+                <span className="fs-5 fw-bold text-dark">Total Pagado:</span>
+                <span className="fs-4 fw-bold text-success">${Number(order.total || 0).toLocaleString('es-CO')}</span>
+              </div>
             </div>
+
           </div>
-        </div>
-      )}
+        )}
 
-      {isAdmin && (
-        <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mt-4">
-          <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-            <h5 className="fw-bold mb-0 text-dark">
-              <i className="bi bi-list-stars text-danger me-2"></i>
-              Historial General de Pedidos ({allOrders.length})
-            </h5>
-
-            <div className="d-flex gap-1 overflow-auto py-1">
-              <button
-                className={`btn btn-sm ${statusFilter === 'TODOS' ? 'btn-danger fw-bold' : 'btn-outline-secondary'} rounded-pill px-3`}
-                onClick={() => setStatusFilter('TODOS')}
-              >
-                Todos
-              </button>
-              {STEPS.map((step, idx) => (
-                <button
-                  key={step.key}
-                  className={`btn btn-sm ${statusFilter === String(idx) ? 'btn-danger fw-bold' : 'btn-outline-secondary'} rounded-pill px-3 text-nowrap`}
-                  onClick={() => setStatusFilter(String(idx))}
-                >
-                  {step.label}
-                </button>
-              ))}
-              <button
-                className={`btn btn-sm ${statusFilter === 'NO_ENTREGADO' ? 'btn-danger fw-bold' : 'btn-outline-secondary'} rounded-pill px-3 text-nowrap`}
-                onClick={() => setStatusFilter('NO_ENTREGADO')}
-              >
-                Envío No Exitoso
-              </button>
-            </div>
-          </div>
-
-          {loadingAll ? (
-            <div className="text-center py-4">
-              <div className="spinner-border text-danger spinner-border-sm me-2"></div>
-              <span className="text-muted">Cargando lista de pedidos...</span>
-            </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-4 bg-light rounded-3">
-              <p className="text-muted mb-0">No se encontraron pedidos registrados en este estado.</p>
-            </div>
-          ) : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th>ID Pedido</th>
-                    <th>Productos</th>
-                    <th>Total</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.map((ord) => (
-                    <tr key={ord.id} className={currentOrderId === ord.id ? 'table-active' : ''}>
-                      <td>
-                        <span className="fw-bold font-monospace text-dark">
-                          #{ord.id}
-                        </span>
-                      </td>
-                      <td>
-                        <small className="d-block text-truncate" style={{ maxWidth: '250px' }}>
-                          {ord.items?.map((it) => `${it.quantity}x ${it.title || it.name}`).join(', ')}
-                        </small>
-                      </td>
-                      <td className="fw-bold text-danger">
-                        ${ord.total?.toLocaleString('es-CO')}
-                      </td>
-                      <td>{getStatusBadge(ord.status)}</td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold"
-                          onClick={() => selectOrderFromList(ord.id)}
-                        >
-                          Ver Rastreo
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
