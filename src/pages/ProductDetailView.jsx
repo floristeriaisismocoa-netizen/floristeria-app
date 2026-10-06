@@ -73,14 +73,16 @@ export function ProductDetailView() {
     localStorage.setItem('floristeria_cart', JSON.stringify(savedCart));
     window.dispatchEvent(new Event('cartUpdated'));
 
-    // Emitir evento para abrir el carrito Offcanvas de inmediato
-    window.dispatchEvent(new Event('openCart'));
+    // Gatillar la apertura inmediata del carrito
+    const triggerBtn = document.getElementById('desktopCartTrigger') || document.getElementById('mobileCartTrigger') || document.querySelector('[data-bs-target="#cartOffcanvas"]');
+    if (triggerBtn) {
+      triggerBtn.click();
+    }
   };
 
   return (
     <div className="bg-dark text-white min-vh-100 py-4" style={{ backgroundColor: '#121212' }}>
       <div className="container" style={{ maxWidth: '1000px' }}>
-        
         <button 
           className="btn btn-outline-light rounded-pill px-4 py-2 mb-4 border-secondary d-inline-flex align-items-center gap-2 fw-semibold"
           onClick={() => navigate(-1)}
@@ -90,7 +92,6 @@ export function ProductDetailView() {
         </button>
 
         <div className="row g-4 bg-black p-4 rounded-4 shadow-lg border border-secondary" style={{ backgroundColor: '#181818' }}>
-          
           <div className="col-md-6 d-flex flex-column align-items-center">
             <div className="position-relative w-100 mb-3 text-center d-flex align-items-center justify-content-center bg-dark rounded-3 border border-secondary" style={{ height: '380px' }}>
               <img

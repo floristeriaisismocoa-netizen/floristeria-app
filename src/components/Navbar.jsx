@@ -41,7 +41,6 @@ export function Navbar() {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-black px-3 py-2 shadow border-bottom border-dark sticky-top">
       <div className="container-fluid">
-        {/* LOGO FLORISTERÍA ISIS */}
         <Link className="navbar-brand d-flex align-items-center gap-2 fw-bold fs-4 me-4" to="/">
           <img
             src="/logotipo.jpeg"
@@ -52,11 +51,15 @@ export function Navbar() {
           <span className="text-white font-serif">Floristería Isis</span>
         </Link>
 
+        {/* Botón Carrito Mobile */}
         <div className="d-flex align-items-center gap-2 d-lg-none me-2">
           <button
+            id="mobileCartTrigger"
             className="btn btn-outline-success position-relative rounded-circle border-0"
+            type="button"
             data-bs-toggle="offcanvas"
             data-bs-target="#cartOffcanvas"
+            aria-controls="cartOffcanvas"
           >
             <i className="bi bi-cart3 fs-4 text-white"></i>
             {cartCount > 0 && (
@@ -86,7 +89,6 @@ export function Navbar() {
                 🏠 Tienda
               </Link>
             </li>
-
             <li className="nav-item">
               <Link
                 className={`nav-link px-3 rounded-pill fw-medium ${isActive('/rastreo') ? 'active bg-warning text-dark' : 'text-light'}`}
@@ -95,7 +97,6 @@ export function Navbar() {
                 🔍 Rastrear Pedido
               </Link>
             </li>
-
             {user && (role === 'florist' || role === 'taller' || role === 'admin') && (
               <li className="nav-item">
                 <Link
@@ -106,7 +107,6 @@ export function Navbar() {
                 </Link>
               </li>
             )}
-
             {user && (role === 'delivery' || role === 'domicilio' || role === 'admin') && (
               <li className="nav-item">
                 <Link
@@ -117,7 +117,6 @@ export function Navbar() {
                 </Link>
               </li>
             )}
-
             {user && role === 'admin' && (
               <li className="nav-item">
                 <Link
@@ -131,10 +130,14 @@ export function Navbar() {
           </ul>
 
           <div className="d-flex align-items-center gap-3">
+            {/* Botón Carrito Desktop */}
             <button
+              id="desktopCartTrigger"
+              type="button"
               className="btn btn-outline-success text-white position-relative rounded-pill px-3 py-1 d-none d-lg-flex align-items-center gap-2"
               data-bs-toggle="offcanvas"
               data-bs-target="#cartOffcanvas"
+              aria-controls="cartOffcanvas"
             >
               <i className="bi bi-cart3 fs-5 text-success"></i>
               <span className="fw-semibold">Carrito</span>
