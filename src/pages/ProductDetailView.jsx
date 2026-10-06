@@ -76,17 +76,19 @@ export function ProductDetailView() {
 
     setAdded(true);
 
-    // Abrir automáticamente el Offcanvas del carrito en la interfaz
-    const cartElement = document.getElementById('cartOffcanvas');
-    if (cartElement) {
-      if (window.bootstrap && window.bootstrap.Offcanvas) {
-        const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(cartElement) || new window.bootstrap.Offcanvas(cartElement);
-        bsOffcanvas.show();
-      } else {
-        const toggleBtn = document.querySelector('[data-bs-target="#cartOffcanvas"]');
-        if (toggleBtn) toggleBtn.click();
+    // Desplegar automáticamente el Carrito Offcanvas
+    setTimeout(() => {
+      const cartElement = document.getElementById('cartOffcanvas');
+      if (cartElement) {
+        if (window.bootstrap && window.bootstrap.Offcanvas) {
+          const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(cartElement) || new window.bootstrap.Offcanvas(cartElement);
+          bsOffcanvas.show();
+        } else {
+          const toggleBtn = document.querySelector('[data-bs-target="#cartOffcanvas"]');
+          if (toggleBtn) toggleBtn.click();
+        }
       }
-    }
+    }, 100);
 
     setTimeout(() => setAdded(false), 2000);
   };
@@ -95,11 +97,9 @@ export function ProductDetailView() {
     <div className="bg-dark text-white min-vh-100 py-4" style={{ backgroundColor: '#121212' }}>
       <div className="container" style={{ maxWidth: '1000px' }}>
         
-        {/* Botón Volver Estilizado */}
         <button 
           className="btn btn-outline-light rounded-pill px-4 py-2 mb-4 border-secondary d-inline-flex align-items-center gap-2 fw-semibold"
           onClick={() => navigate(-1)}
-          style={{ transition: 'all 0.2s ease' }}
         >
           <i className="bi bi-arrow-left fs-5"></i>
           <span>Volver al Catálogo</span>
@@ -107,7 +107,6 @@ export function ProductDetailView() {
 
         <div className="row g-4 bg-black p-4 rounded-4 shadow-lg border border-secondary" style={{ backgroundColor: '#181818' }}>
           
-          {/* Columna Izquierda: Galería y Carrusel */}
           <div className="col-md-6 d-flex flex-column align-items-center">
             <div className="position-relative w-100 mb-3 text-center d-flex align-items-center justify-content-center bg-dark rounded-3 border border-secondary" style={{ height: '380px' }}>
               <img
@@ -137,7 +136,6 @@ export function ProductDetailView() {
               )}
             </div>
 
-            {/* Miniaturas */}
             {product.images.length > 1 && (
               <div className="d-flex gap-2 overflow-auto w-100 justify-content-center py-2">
                 {product.images.map((img, idx) => (
@@ -146,7 +144,7 @@ export function ProductDetailView() {
                     src={img}
                     alt={`Thumb-${idx}`}
                     className={`rounded-3 border ${selectedImageIndex === idx ? 'border-success border-2 shadow' : 'border-secondary opacity-50'}`}
-                    style={{ width: '60px', height: '60px', objectFit: 'cover', cursor: 'pointer', transition: 'all 0.2s' }}
+                    style={{ width: '60px', height: '60px', objectFit: 'cover', cursor: 'pointer' }}
                     onClick={() => setSelectedImageIndex(idx)}
                   />
                 ))}
@@ -154,7 +152,6 @@ export function ProductDetailView() {
             )}
           </div>
 
-          {/* Columna Derecha: Información del Arreglo */}
           <div className="col-md-6 d-flex flex-column justify-content-between">
             <div>
               <h2 className="fw-bold text-white mb-2">{product.name}</h2>
@@ -181,7 +178,6 @@ export function ProductDetailView() {
               <p className="text-secondary small lh-lg">{product.description}</p>
             </div>
 
-            {/* Selector de Cantidad y Botón de Compra */}
             <div className="mt-4">
               <div className="mb-3">
                 <label className="form-label small fw-bold text-secondary text-uppercase">Cantidad:</label>
@@ -205,9 +201,8 @@ export function ProductDetailView() {
               </div>
 
               <button
-                className={`btn ${added ? 'btn-success' : 'btn-success'} w-100 py-3 rounded-3 fw-bold text-uppercase shadow-lg d-flex align-items-center justify-content-center gap-2 fs-6`}
+                className="btn btn-success w-100 py-3 rounded-3 fw-bold text-uppercase shadow-lg d-flex align-items-center justify-content-center gap-2 fs-6"
                 onClick={handleAddToCart}
-                style={{ transition: 'all 0.3s ease' }}
               >
                 <i className={`bi ${added ? 'bi-check-circle-fill' : 'bi-cart-plus-fill'} fs-5`}></i>
                 <span>{added ? '¡Agregado al Carrito!' : 'Agregar al Carrito'}</span>

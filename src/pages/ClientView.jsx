@@ -26,14 +26,16 @@ export function ClientView() {
   const [checkoutStep, setCheckoutStep] = useState(1);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
-  // Form states
+  // Form states - REMITENTE
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('');
+  const [documentType, setDocumentType] = useState('CC');
   const [senderDocument, setSenderDocument] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
   const [senderName, setSenderName] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
 
+  // Form states - DESTINATARIO
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -42,6 +44,21 @@ export function ClientView() {
 
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
+
+  // Opciones Dinámicas de Fecha
+  const getAvailableDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dayName = i === 0 ? 'Hoy' : i === 1 ? 'Mañana' : d.toLocaleDateString('es-ES', { weekday: 'long' });
+      const formatted = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      const isoValue = d.toISOString().split('T')[0];
+      dates.push({ value: isoValue, label: `${dayName.toUpperCase()} (${formatted})` });
+    }
+    return dates;
+  };
 
   useEffect(() => {
     const handlePopState = (event) => {
@@ -137,7 +154,6 @@ export function ClientView() {
     setShowCheckoutModal(true);
   };
 
-  // Filtrado de productos
   const filteredProducts = selectedCategory
     ? products.filter((p) => {
         if (selectedCategory === 'RAMOS') {
@@ -153,7 +169,6 @@ export function ClientView() {
       })
     : [];
 
-  // Productos adicionales para la venta cruzada (Adicionales)
   const addOnProducts = products.filter((p) => 
     ['CHOCOLATES', 'GLOBOS', 'CORONAS', 'PELUCHES', 'ESPECIALES'].includes(p.category)
   ).slice(0, 6);
@@ -199,6 +214,7 @@ export function ClientView() {
         paymentMethod,
         deliveryType,
         sender: {
+          documentType,
           document: senderDocument.trim() || 'N/A',
           email: senderEmail.trim() || 'N/A',
           name: senderName.trim() || (isCajaOrAdmin ? 'Cliente Tienda Física' : 'Cliente Web'),
@@ -332,7 +348,7 @@ export function ClientView() {
               </div>
             )}
 
-            {/* TARJETAS DE PRODUCTOS - SOLO VISUALIZACIÓN */}
+            {/* TARJETAS DE PRODUCTOS */}
             {loading ? (
               <div className="text-center py-5">
                 <div className="spinner-border text-success" role="status"></div>
@@ -455,7 +471,7 @@ export function ClientView() {
         </div>
       </div>
 
-      {/* MODAL CHECKOUT MULTI-PASO (PASO 1 AL 4) */}
+      {/* MODAL CHECKOUT LIMPIO, AMPLIO Y ELEGANTE ESTILO E-COMMERCE */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"
@@ -463,24 +479,24 @@ export function ClientView() {
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.88)', zIndex: 1070 }}
           onClick={() => setShowCheckoutModal(false)}
         >
-          <div className="modal-dialog modal-dialog-centered modal-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content bg-dark text-white rounded-4 border border-secondary shadow-lg overflow-hidden">
+          <div className="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content bg-white text-dark rounded-4 border-0 shadow-lg overflow-hidden">
               
-              {/* ENCABEZADO DE PASOS */}
-              <div className="modal-header bg-black border-bottom border-secondary p-3 flex-column align-items-stretch">
+              {/* ENCABEZADO CLARO Y ESPACIOSO */}
+              <div className="modal-header bg-white border-bottom p-4 flex-column align-items-stretch">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h5 className="modal-title fw-bold text-success mb-0">
-                    <i className="bi bi-shield-check me-2"></i> Proceso de Compra
-                  </h5>
+                  <span className="text-secondary fw-semibold cursor-pointer" onClick={() => setShowCheckoutModal(false)}>
+                    ← Volver a la tienda
+                  </span>
                   <button
                     type="button"
-                    className="btn-close btn-close-white"
+                    className="btn-close"
                     onClick={() => setShowCheckoutModal(false)}
                   ></button>
                 </div>
 
-                {/* NAVEGADOR DE PASOS 1 -> 2 -> 3 -> 4 */}
-                <div className="d-flex justify-content-center align-items-center gap-3 border-top border-secondary pt-3">
+                {/* INDICADOR DE PASOS 1 -> 2 -> 3 -> 4 */}
+                <div className="d-flex justify-content-center align-items-center gap-3 gap-md-5 pt-2">
                   {[
                     { num: 1, label: 'RECOMENDACIONES' },
                     { num: 2, label: 'REMITENTE' },
@@ -488,10 +504,10 @@ export function ClientView() {
                     { num: 4, label: 'REALIZAR PAGO' }
                   ].map((st) => (
                     <div key={st.num} className="d-flex align-items-center gap-2">
-                      <span className={`badge rounded-circle p-2 fs-6 ${checkoutStep === st.num ? 'bg-success text-white' : 'bg-secondary text-dark'}`}>
+                      <span className={`badge rounded-circle p-2 fs-6 ${checkoutStep === st.num ? 'bg-dark text-white' : 'bg-light text-muted border'}`}>
                         {st.num}
                       </span>
-                      <small className={`fw-bold text-uppercase d-none d-md-inline ${checkoutStep === st.num ? 'text-success' : 'text-muted'}`}>
+                      <small className={`fw-bold text-uppercase d-none d-md-inline ${checkoutStep === st.num ? 'text-dark' : 'text-muted'}`}>
                         {st.label}
                       </small>
                     </div>
@@ -499,339 +515,365 @@ export function ClientView() {
                 </div>
               </div>
 
-              <div className="modal-body p-4">
-                <div className="row g-4">
-                  {/* COLUMNA PRINCIPAL DE FORMULARIOS POR PASO */}
-                  <div className="col-lg-8 border-end-lg border-secondary pe-lg-4">
+              <div className="modal-body p-4 p-md-5 bg-light">
+                <div className="row g-4 g-lg-5">
+                  
+                  {/* COLUMNA IZQUIERDA FORMULARIO PRINCIPAL */}
+                  <div className="col-lg-8">
+                    <div className="bg-white p-4 p-md-5 rounded-4 border shadow-sm">
 
-                    {/* PASO 1: RECOMENDACIONES (ADICIONALES) */}
-                    {checkoutStep === 1 && (
-                      <div>
-                        <h4 className="fw-bold text-white mb-1">Antes de continuar, agrega...</h4>
-                        <p className="text-secondary small mb-4">Estos productos complementan tu compra e impresiona a esa persona especial</p>
+                      {/* PASO 1: RECOMENDACIONES (VENTA CRUZADA) */}
+                      {checkoutStep === 1 && (
+                        <div>
+                          <h3 className="fw-bold text-dark mb-1">Antes de continuar, agrega...</h3>
+                          <p className="text-muted small mb-4">Estos productos complementan tu compra</p>
 
-                        <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
-                          {addOnProducts.map((add) => (
-                            <div className="col" key={add.id}>
-                              <div className="card h-100 bg-black border-secondary p-2 position-relative rounded-3">
-                                <button
-                                  type="button"
-                                  className="btn btn-success btn-sm position-absolute top-0 end-0 m-2 rounded-circle fw-bold fs-6 shadow"
-                                  style={{ width: '32px', height: '32px', lineHeight: 1 }}
-                                  onClick={() => addToCart(add)}
-                                  title="Agregar Adicional"
-                                >
-                                  +
-                                </button>
-                                <img
-                                  src={add.image}
-                                  alt={add.name}
-                                  className="rounded mb-2"
-                                  style={{ height: '110px', objectFit: 'cover' }}
-                                />
-                                <h6 className="fw-bold text-white fs-7 mb-1 text-truncate">{add.name}</h6>
-                                <span className="text-success fw-bold small">${add.price.toLocaleString('es-CO')}</span>
+                          <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                            {addOnProducts.map((add) => (
+                              <div className="col" key={add.id}>
+                                <div className="card h-100 border-0 bg-light p-3 position-relative rounded-4 text-center">
+                                  <button
+                                    type="button"
+                                    className="btn btn-white bg-white shadow-sm position-absolute top-0 end-0 m-2 rounded-circle fw-bold fs-5 border"
+                                    style={{ width: '36px', height: '36px', lineHeight: 1 }}
+                                    onClick={() => addToCart(add)}
+                                  >
+                                    +
+                                  </button>
+                                  <img
+                                    src={add.image}
+                                    alt={add.name}
+                                    className="rounded-3 mb-2 mx-auto"
+                                    style={{ height: '120px', objectFit: 'contain', width: '100%' }}
+                                  />
+                                  <h6 className="fw-bold text-dark fs-7 mb-1 text-truncate">{add.name}</h6>
+                                  <span className="text-dark fw-bold small">${add.price.toLocaleString('es-CO')}</span>
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
 
-                        <div className="d-flex justify-content-end mt-4">
-                          <button
-                            type="button"
-                            className="btn btn-success rounded-pill px-5 fw-bold text-uppercase"
-                            onClick={() => setCheckoutStep(2)}
-                          >
-                            Continuar <i className="bi bi-arrow-right ms-1"></i>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PASO 2: REMITENTE */}
-                    {checkoutStep === 2 && (
-                      <div>
-                        <h4 className="fw-bold text-white mb-3">DATOS DEL REMITENTE</h4>
-                        <div className="row g-3">
-                          <div className="col-md-6">
-                            <label className="form-label small fw-bold text-light">Fecha de Entrega *</label>
-                            <input
-                              type="date"
-                              className="form-control bg-black text-white border-secondary"
-                              value={deliveryDate}
-                              onChange={(e) => setDeliveryDate(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label small fw-bold text-light">Horario de Entrega *</label>
-                            <select
-                              className="form-select bg-black text-white border-secondary"
-                              value={deliveryTimeSlot}
-                              onChange={(e) => setDeliveryTimeSlot(e.target.value)}
-                            >
-                              <option value="">Seleccione horario</option>
-                              <option value="MAÑANA (8:00 AM - 12:00 PM)">Mañana (8:00 AM - 12:00 PM)</option>
-                              <option value="TARDE (2:00 PM - 6:00 PM)">Tarde (2:00 PM - 6:00 PM)</option>
-                            </select>
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label small fw-bold text-light">Número de Documento (CC) *</label>
-                            <input
-                              type="text"
-                              className="form-control bg-black text-white border-secondary"
-                              placeholder="Ej: 1085234900"
-                              value={senderDocument}
-                              onChange={(e) => setSenderDocument(e.target.value)}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label small fw-bold text-light">Correo Electrónico *</label>
-                            <input
-                              type="email"
-                              className="form-control bg-black text-white border-secondary"
-                              placeholder="correo@ejemplo.com"
-                              value={senderEmail}
-                              onChange={(e) => setSenderEmail(e.target.value)}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label small fw-bold text-light">Nombre y Apellido *</label>
-                            <input
-                              type="text"
-                              className="form-control bg-black text-white border-secondary"
-                              placeholder="Tu nombre completo"
-                              value={senderName}
-                              onChange={(e) => setSenderName(e.target.value)}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label small fw-bold text-light">Celular *</label>
-                            <input
-                              type="tel"
-                              className="form-control bg-black text-white border-secondary"
-                              placeholder="Ej: 3101234567"
-                              value={senderPhone}
-                              onChange={(e) => setSenderPhone(e.target.value)}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="d-flex justify-content-between mt-4">
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary rounded-pill px-4"
-                            onClick={() => setCheckoutStep(1)}
-                          >
-                            Volver
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-success rounded-pill px-5 fw-bold text-uppercase"
-                            onClick={() => setCheckoutStep(3)}
-                          >
-                            Continuar <i className="bi bi-arrow-right ms-1"></i>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PASO 3: DESTINATARIO & MENSAJE */}
-                    {checkoutStep === 3 && (
-                      <div>
-                        <h4 className="fw-bold text-white mb-3">DATOS DEL DESTINATARIO</h4>
-                        <div className="row g-3">
-                          <div className="col-md-6">
-                            <label className="form-label small fw-bold text-light">Nombre del Destinatario *</label>
-                            <input
-                              type="text"
-                              className="form-control bg-black text-white border-secondary"
-                              placeholder="Nombre de la persona que recibe"
-                              value={recipientName}
-                              onChange={(e) => setRecipientName(e.target.value)}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label small fw-bold text-light">Celular del Destinatario *</label>
-                            <input
-                              type="tel"
-                              className="form-control bg-black text-white border-secondary"
-                              placeholder="Solo en caso de emergencia"
-                              value={recipientPhone}
-                              onChange={(e) => setRecipientPhone(e.target.value)}
-                            />
-                          </div>
-                          <div className="col-12">
-                            <label className="form-label small fw-bold text-light">Dirección de Entrega *</label>
-                            <input
-                              type="text"
-                              className="form-control bg-black text-white border-secondary"
-                              placeholder="Ej: Carrera 5 # 10-20 Barrio Centro"
-                              value={deliveryAddress}
-                              onChange={(e) => setDeliveryAddress(e.target.value)}
-                            />
-                          </div>
-                          <div className="col-12">
-                            <label className="form-label small fw-bold text-light">Detalles adicionales de la dirección</label>
-                            <input
-                              type="text"
-                              className="form-control bg-black text-white border-secondary"
-                              placeholder="Conjunto, apto, oficina u observaciones"
-                              value={deliveryNotes}
-                              onChange={(e) => setDeliveryNotes(e.target.value)}
-                            />
-                          </div>
-                          <div className="col-12 mt-3">
-                            <h5 className="fw-bold text-success">MENSAJE PERSONALIZADO</h5>
-                            <textarea
-                              className="form-control bg-black text-white border-secondary"
-                              rows="3"
-                              placeholder="Escribe aquí el mensaje para la tarjeta y tu firma..."
-                              value={cardMessage}
-                              onChange={(e) => setCardMessage(e.target.value)}
-                            ></textarea>
-                          </div>
-                        </div>
-
-                        <div className="d-flex justify-content-between mt-4">
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary rounded-pill px-4"
-                            onClick={() => setCheckoutStep(2)}
-                          >
-                            Volver
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-success rounded-pill px-5 fw-bold text-uppercase"
-                            onClick={() => setCheckoutStep(4)}
-                          >
-                            Ir a Pago <i className="bi bi-credit-card ms-1"></i>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PASO 4: REALIZAR PAGO */}
-                    {checkoutStep === 4 && (
-                      <div>
-                        <h4 className="fw-bold text-white mb-3">SELECCIONA EL MÉTODO DE PAGO</h4>
-                        <div className="d-flex flex-column gap-3">
-                          <button
-                            type="button"
-                            className={`btn p-3 text-start border-2 rounded-3 d-flex justify-content-between align-items-center ${
-                              paymentMethod === 'TRANSFERENCIA' ? 'btn-success text-white fw-bold' : 'btn-outline-secondary text-light'
-                            }`}
-                            onClick={() => setPaymentMethod('TRANSFERENCIA')}
-                          >
-                            <div>
-                              <span className="d-block fw-bold fs-6">📲 Transferencia Nequi / Daviplata</span>
-                              <small className="opacity-75">Cuenta bancaria directa o código QR</small>
-                            </div>
-                            <i className="bi bi-chevron-right"></i>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`btn p-3 text-start border-2 rounded-3 d-flex justify-content-between align-items-center ${
-                              paymentMethod === 'TARJETA' ? 'btn-success text-white fw-bold' : 'btn-outline-secondary text-light'
-                            }`}
-                            onClick={() => setPaymentMethod('TARJETA')}
-                          >
-                            <div>
-                              <span className="d-block fw-bold fs-6">💳 Tarjeta Débito o Crédito</span>
-                              <small className="opacity-75">Pago seguro procesado en línea</small>
-                            </div>
-                            <i className="bi bi-chevron-right"></i>
-                          </button>
-
-                          {isCajaOrAdmin && (
+                          <div className="d-flex justify-content-end mt-5">
                             <button
                               type="button"
-                              className={`btn p-3 text-start border-2 rounded-3 d-flex justify-content-between align-items-center ${
-                                paymentMethod === 'EFECTIVO' ? 'btn-warning text-dark fw-bold' : 'btn-outline-warning text-warning'
-                              }`}
-                              onClick={() => {
-                                setPaymentMethod('EFECTIVO');
-                                setDeliveryType('TIENDA');
-                              }}
+                              className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
+                              onClick={() => setCheckoutStep(2)}
                             >
-                              <div>
-                                <span className="d-block fw-bold fs-6">💵 Pago en Efectivo (Caja)</span>
-                                <small className="opacity-75">Pago directo en el mostrador</small>
-                              </div>
-                              <i className="bi bi-chevron-right"></i>
+                              CONTINUAR ›
                             </button>
-                          )}
+                          </div>
                         </div>
+                      )}
 
-                        <div className="d-flex justify-content-between mt-5">
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary rounded-pill px-4"
-                            onClick={() => setCheckoutStep(3)}
-                          >
-                            Corregir información
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-success rounded-pill px-5 fw-bold text-uppercase shadow-lg fs-6"
-                            disabled={isProcessing}
-                            onClick={handleFinalizePayment}
-                          >
-                            {isProcessing ? 'Procesando...' : 'PAGAR AHORA'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                      {/* PASO 2: REMITENTE */}
+                      {checkoutStep === 2 && (
+                        <div>
+                          <h4 className="fw-bold text-dark mb-4 text-uppercase">DATOS DEL REMITENTE</h4>
+                          
+                          <div className="row g-3">
+                            <div className="col-12">
+                              <label className="form-label small fw-bold text-muted text-uppercase mb-1">FECHA Y HORA DE ENTREGA</label>
+                              <select
+                                className="form-select py-3 rounded-3 border-light-subtle mb-2"
+                                value={deliveryDate}
+                                onChange={(e) => setDeliveryDate(e.target.value)}
+                              >
+                                <option value="">Seleccione fecha</option>
+                                {getAvailableDates().map((d) => (
+                                  <option key={d.value} value={d.value}>{d.label}</option>
+                                ))}
+                              </select>
 
-                  {/* RESUMEN LATERAL DE COMPRA (PRESENTE EN TODOS LOS PASOS) */}
-                  <div className="col-lg-4 bg-black p-3 rounded-4 border border-secondary d-flex flex-column justify-content-between">
-                    <div>
-                      <h5 className="fw-bold text-success border-bottom border-secondary pb-2 mb-3">
-                        Resumen de la Compra
-                      </h5>
-                      <div className="d-flex flex-column gap-2 mb-3 max-h-60 overflow-auto">
-                        {cart.map((item) => (
-                          <div key={item.id} className="d-flex align-items-center justify-content-between bg-dark p-2 rounded border border-secondary">
-                            <div className="d-flex align-items-center gap-2">
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="rounded"
-                                style={{ width: '42px', height: '42px', objectFit: 'cover' }}
-                              />
-                              <div>
-                                <span className="small fw-bold text-white d-block text-truncate" style={{ maxWidth: '140px' }}>
-                                  {item.name}
-                                </span>
-                                <small className="text-muted">Cant: {item.quantity}</small>
+                              <select
+                                className="form-select py-3 rounded-3 border-light-subtle"
+                                value={deliveryTimeSlot}
+                                onChange={(e) => setDeliveryTimeSlot(e.target.value)}
+                              >
+                                <option value="">Seleccione horario</option>
+                                <option value="MAÑANA (8:00 AM - 12:00 PM)">Mañana (8:00 AM - 12:00 PM)</option>
+                                <option value="TARDE (2:00 PM - 6:00 PM)">Tarde (2:00 PM - 6:00 PM)</option>
+                              </select>
+                            </div>
+
+                            {/* SELECTOR DE TIPO DE DOCUMENTO CON LAS 4 OPCIONES EXACTAS */}
+                            <div className="col-12 mt-3">
+                              <label className="form-label small fw-bold text-muted text-uppercase mb-1">DOCUMENTO DE IDENTIDAD</label>
+                              <div className="input-group">
+                                <select
+                                  className="form-select py-3 rounded-start-3 border-light-subtle fw-bold"
+                                  style={{ maxWidth: '100px' }}
+                                  value={documentType}
+                                  onChange={(e) => setDocumentType(e.target.value)}
+                                >
+                                  <option value="CC">CC</option>
+                                  <option value="CE">CE</option>
+                                  <option value="NIT">NIT</option>
+                                  <option value="PP">PP</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  className="form-control py-3 rounded-end-3 border-light-subtle"
+                                  placeholder="Número de documento *"
+                                  value={senderDocument}
+                                  onChange={(e) => setSenderDocument(e.target.value)}
+                                />
                               </div>
                             </div>
-                            <span className="small fw-bold text-success">${(item.price * item.quantity).toLocaleString('es-CO')}</span>
+
+                            <div className="col-12 mt-3">
+                              <input
+                                type="email"
+                                className="form-control py-3 rounded-3 border-light-subtle"
+                                placeholder="Email *"
+                                value={senderEmail}
+                                onChange={(e) => setSenderEmail(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="col-12 mt-3">
+                              <input
+                                type="text"
+                                className="form-control py-3 rounded-3 border-light-subtle"
+                                placeholder="Nombre y apellido *"
+                                value={senderName}
+                                onChange={(e) => setSenderName(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="col-12 mt-3">
+                              <input
+                                type="tel"
+                                className="form-control py-3 rounded-3 border-light-subtle"
+                                placeholder="Celular *"
+                                value={senderPhone}
+                                onChange={(e) => setSenderPhone(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="d-flex justify-content-between mt-5">
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary rounded-pill px-4 py-2"
+                              onClick={() => setCheckoutStep(1)}
+                            >
+                              Volver
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
+                              onClick={() => setCheckoutStep(3)}
+                            >
+                              CONTINUAR ›
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* PASO 3: DESTINATARIO */}
+                      {checkoutStep === 3 && (
+                        <div>
+                          <h4 className="fw-bold text-dark mb-4 text-uppercase">DATOS DEL DESTINATARIO</h4>
+                          
+                          <div className="row g-3">
+                            <div className="col-12">
+                              <input
+                                type="text"
+                                className="form-control py-3 rounded-3 border-light-subtle"
+                                placeholder="Nombre y apellido *"
+                                value={recipientName}
+                                onChange={(e) => setRecipientName(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="col-12">
+                              <input
+                                type="tel"
+                                className="form-control py-3 rounded-3 border-light-subtle"
+                                placeholder="Celular *"
+                                value={recipientPhone}
+                                onChange={(e) => setRecipientPhone(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="col-12">
+                              <input
+                                type="text"
+                                className="form-control py-3 rounded-3 border-light-subtle"
+                                placeholder="Dirección de entrega *"
+                                value={deliveryAddress}
+                                onChange={(e) => setDeliveryAddress(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="col-12">
+                              <input
+                                type="text"
+                                className="form-control py-3 rounded-3 border-light-subtle"
+                                placeholder="Detalles adicionales (Conjunto, nombre edificio, oficina u observaciones de entrega)"
+                                value={deliveryNotes}
+                                onChange={(e) => setDeliveryNotes(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="col-12 mt-4">
+                              <h5 className="fw-bold text-dark text-uppercase mb-2">MENSAJE PERSONALIZADO</h5>
+                              <textarea
+                                className="form-control p-3 rounded-3 border-light-subtle"
+                                rows="3"
+                                placeholder="Mensaje para la tarjeta y firma"
+                                value={cardMessage}
+                                onChange={(e) => setCardMessage(e.target.value)}
+                              ></textarea>
+                            </div>
+                          </div>
+
+                          <div className="d-flex justify-content-between mt-5">
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary rounded-pill px-4 py-2"
+                              onClick={() => setCheckoutStep(2)}
+                            >
+                              Corregir información
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
+                              onClick={() => setCheckoutStep(4)}
+                            >
+                              CONTINUAR ›
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* PASO 4: REALIZAR PAGO */}
+                      {checkoutStep === 4 && (
+                        <div>
+                          <h4 className="fw-bold text-dark mb-4 text-uppercase">SELECCIONA EL MÉTODO DE PAGO</h4>
+                          
+                          <div className="d-flex flex-column gap-3">
+                            <button
+                              type="button"
+                              className={`btn p-4 text-start border rounded-4 d-flex justify-content-between align-items-center ${
+                                paymentMethod === 'TRANSFERENCIA' ? 'border-dark bg-light fw-bold' : 'bg-white'
+                              }`}
+                              onClick={() => setPaymentMethod('TRANSFERENCIA')}
+                            >
+                              <div>
+                                <span className="d-block fw-bold fs-6 text-dark">📲 Transferencia Nequi / Daviplata</span>
+                                <small className="text-muted">Cuenta bancaria directa o código QR</small>
+                              </div>
+                              <i className="bi bi-chevron-right fs-5"></i>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`btn p-4 text-start border rounded-4 d-flex justify-content-between align-items-center ${
+                                paymentMethod === 'TARJETA' ? 'border-dark bg-light fw-bold' : 'bg-white'
+                              }`}
+                              onClick={() => setPaymentMethod('TARJETA')}
+                            >
+                              <div>
+                                <span className="d-block fw-bold fs-6 text-dark">💳 Tarjeta Débito o Crédito</span>
+                                <small className="text-muted">Pago seguro procesado en línea</small>
+                              </div>
+                              <i className="bi bi-chevron-right fs-5"></i>
+                            </button>
+
+                            {isCajaOrAdmin && (
+                              <button
+                                type="button"
+                                className={`btn p-4 text-start border rounded-4 d-flex justify-content-between align-items-center ${
+                                  paymentMethod === 'EFECTIVO' ? 'border-warning bg-warning bg-opacity-10 fw-bold' : 'bg-white'
+                                }`}
+                                onClick={() => {
+                                  setPaymentMethod('EFECTIVO');
+                                  setDeliveryType('TIENDA');
+                                }}
+                              >
+                                <div>
+                                  <span className="d-block fw-bold fs-6 text-dark">💵 Pago en Efectivo (Caja)</span>
+                                  <small className="text-muted">Pago presencial en el mostrador</small>
+                                </div>
+                                <i className="bi bi-chevron-right fs-5"></i>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="d-flex justify-content-between mt-5">
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary rounded-pill px-4 py-2"
+                              onClick={() => setCheckoutStep(3)}
+                            >
+                              Corregir información
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow fs-6"
+                              disabled={isProcessing}
+                              onClick={handleFinalizePayment}
+                            >
+                              {isProcessing ? 'Procesando...' : 'PAGAR AHORA ›'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  </div>
+
+                  {/* RESUMEN LATERAL ELEGANTE Y ESPACIOSO */}
+                  <div className="col-lg-4">
+                    <div className="bg-white p-4 rounded-4 border shadow-sm sticky-top" style={{ top: '20px' }}>
+                      <div className="d-flex flex-column gap-3 mb-4 max-h-60 overflow-auto">
+                        {cart.map((item) => (
+                          <div key={item.id} className="d-flex align-items-center justify-content-between pb-2 border-bottom">
+                            <div className="d-flex align-items-center gap-3">
+                              <div className="position-relative">
+                                <img
+                                  src={item.image}
+                                  alt={item.name}
+                                  className="rounded-3"
+                                  style={{ width: '56px', height: '56px', objectFit: 'cover' }}
+                                />
+                                <span className="position-absolute top-0 start-100 translate-middle badge rounded-circle bg-secondary">
+                                  {item.quantity}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="fw-bold text-dark d-block text-truncate" style={{ maxWidth: '150px' }}>
+                                  {item.name}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="fw-bold text-dark">${(item.price * item.quantity).toLocaleString('es-CO')}</span>
                           </div>
                         ))}
                       </div>
-                    </div>
 
-                    <div className="border-top border-secondary pt-3">
-                      <div className="d-flex justify-content-between mb-1 text-secondary small">
-                        <span>Subtotal</span>
-                        <span>${cartTotal.toLocaleString('es-CO')}</span>
-                      </div>
-                      <div className="d-flex justify-content-between mb-2 text-secondary small">
-                        <span>Costo de envío</span>
-                        <span>{deliveryType === 'DOMICILIO' ? 'Por Calcular' : 'Gratis en Tienda'}</span>
-                      </div>
-                      <div className="d-flex justify-content-between fw-bold fs-5 text-white">
-                        <span>TOTAL</span>
-                        <span className="text-success">${cartTotal.toLocaleString('es-CO')}</span>
+                      <div className="pt-2">
+                        <div className="d-flex justify-content-between mb-2 text-secondary">
+                          <span>Subtotal</span>
+                          <span className="fw-semibold text-dark">${cartTotal.toLocaleString('es-CO')}</span>
+                        </div>
+                        <div className="d-flex justify-content-between mb-3 text-secondary">
+                          <span>Costo de envío</span>
+                          <span>—</span>
+                        </div>
+                        <hr className="my-2" />
+                        <div className="d-flex justify-content-between fw-bold fs-4 text-dark mt-3">
+                          <span>TOTAL</span>
+                          <span>${cartTotal.toLocaleString('es-CO')}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
+
                 </div>
               </div>
+
             </div>
           </div>
         </div>
