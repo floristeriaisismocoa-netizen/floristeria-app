@@ -17,7 +17,6 @@ export function CartOffcanvas() {
     return JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
   });
 
-  // Pasos Checkout: 1 = RECOMENDACIONES, 2 = REMITENTE, 3 = DESTINATARIO, 4 = REALIZAR PAGO
   const [checkoutStep, setCheckoutStep] = useState(1);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -40,6 +39,50 @@ export function CartOffcanvas() {
 
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
+
+  // Soporte para botón "Atrás" en celulares durante el checkout
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (showCheckoutModal) {
+        if (event.state && typeof event.state.checkoutStep === 'number') {
+          setCheckoutStep(event.state.checkoutStep);
+        } else {
+          setShowCheckoutModal(false);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [showCheckoutModal]);
+
+  const changeCheckoutStep = (newStep) => {
+    setCheckoutStep(newStep);
+    window.history.pushState({ checkoutStep: newStep }, '', '');
+  };
+
+  const handleOpenCheckout = () => {
+    const offcanvasElement = document.getElementById('cartOffcanvas');
+    if (offcanvasElement) {
+      if (window.bootstrap && window.bootstrap.Offcanvas) {
+        const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(offcanvasElement);
+        if (bsOffcanvas) bsOffcanvas.hide();
+      } else {
+        const closeBtn = offcanvasElement.querySelector('.btn-close');
+        if (closeBtn) closeBtn.click();
+      }
+    }
+    setCheckoutStep(1);
+    setShowCheckoutModal(true);
+    window.history.pushState({ checkoutStep: 1 }, '', '');
+  };
+
+  const handleCloseCheckout = () => {
+    setShowCheckoutModal(false);
+    if (window.history.state && typeof window.history.state.checkoutStep === 'number') {
+      window.history.back();
+    }
+  };
 
   const getAvailableDates = () => {
     const dates = [];
@@ -115,22 +158,6 @@ export function CartOffcanvas() {
     ['CHOCOLATES', 'GLOBOS', 'CORONAS', 'PELUCHES', 'ESPECIALES'].includes(p.category)
   ).slice(0, 6);
 
-  const handleProceedToCheckout = () => {
-    const offcanvasElement = document.getElementById('cartOffcanvas');
-    if (offcanvasElement) {
-      if (window.bootstrap && window.bootstrap.Offcanvas) {
-        const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(offcanvasElement);
-        if (bsOffcanvas) bsOffcanvas.hide();
-      } else {
-        const closeBtn = offcanvasElement.querySelector('.btn-close');
-        if (closeBtn) closeBtn.click();
-      }
-    }
-    setCheckoutStep(1);
-    setShowCheckoutModal(true);
-  };
-
-  // Función para obtener el siguiente número consecutivo con formato J-X
   const getNextOrderNumber = async () => {
     try {
       const ordersRef = collection(db, 'orders');
@@ -174,7 +201,7 @@ export function CartOffcanvas() {
       const newOrderNumber = await getNextOrderNumber();
 
       const orderData = {
-        orderNumber: newOrderNumber, // Guardamos el formato J-0, J-1, etc.
+        orderNumber: newOrderNumber,
         items: formattedItems,
         total: cartTotal,
         paymentMethod,
@@ -192,7 +219,8 @@ export function CartOffcanvas() {
         customerPhone: recipientPhone.trim() || senderPhone.trim() || 'N/A',
         deliveryAddress: deliveryType === 'DOMICILIO' ? `${deliveryAddress.trim()} (${deliveryNotes.trim()})` : 'Retiro Presencial en Tienda',
         customNote: cardMessage.trim(),
-        status: 'PENDIENTE_PREPARACION',
+        // ESTADO INICIAL: ENVIADO A TALLER
+        status: 'EN_PREPARACION',
         createdBy: user ? user.email : 'cliente_web',
         isPhysicalStoreSale: Boolean(isCajaOrAdmin),
         createdAt: serverTimestamp()
@@ -203,7 +231,6 @@ export function CartOffcanvas() {
       updateCart([]);
       setShowCheckoutModal(false);
 
-      // Redirigir al rastreo
       navigate(`/rastreo/${docRef.id}`);
     } catch (error) {
       console.error('Error al procesar pedido:', error);
@@ -220,10 +247,9 @@ export function CartOffcanvas() {
         className="offcanvas offcanvas-end bg-black text-white border-start border-secondary"
         tabIndex="-1"
         id="cartOffcanvas"
-        aria-labelledby="cartOffcanvasLabel"
       >
         <div className="offcanvas-header bg-dark border-bottom border-secondary p-3">
-          <h5 className="offcanvas-title fw-bold text-success d-flex align-items-center gap-2" id="cartOffcanvasLabel">
+          <h5 className="offcanvas-title fw-bold text-success d-flex align-items-center gap-2">
             <i className="bi bi-cart3"></i>
             <span>Carrito de Compras</span>
           </h5>
@@ -231,7 +257,6 @@ export function CartOffcanvas() {
             type="button"
             className="btn-close btn-close-white"
             data-bs-dismiss="offcanvas"
-            aria-label="Close"
           ></button>
         </div>
 
@@ -281,7 +306,7 @@ export function CartOffcanvas() {
                 <button
                   type="button"
                   className="btn btn-success w-100 fw-bold py-3 rounded-3 shadow fs-6 text-uppercase"
-                  onClick={handleProceedToCheckout}
+                  onClick={handleOpenCheckout}
                 >
                   <i className="bi bi-credit-card-2-front me-2"></i>
                   Proceder al Pago
@@ -292,26 +317,26 @@ export function CartOffcanvas() {
         </div>
       </div>
 
-      {/* MODAL CHECKOUT COMPLETO */}
+      {/* MODAL CHECKOUT CON NAVEGACIÓN MÓVIL SEGURA */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"
           tabIndex="-1"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.88)', zIndex: 1080 }}
-          onClick={() => setShowCheckoutModal(false)}
+          onClick={handleCloseCheckout}
         >
           <div className="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content bg-white text-dark rounded-4 border-0 shadow-lg overflow-hidden">
               
               <div className="modal-header bg-white border-bottom p-4 flex-column align-items-stretch">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <span className="text-secondary fw-semibold cursor-pointer" onClick={() => setShowCheckoutModal(false)}>
+                  <span className="text-secondary fw-semibold cursor-pointer" onClick={handleCloseCheckout}>
                     ← Volver
                   </span>
                   <button
                     type="button"
                     className="btn-close"
-                    onClick={() => setShowCheckoutModal(false)}
+                    onClick={handleCloseCheckout}
                   ></button>
                 </div>
 
@@ -374,7 +399,7 @@ export function CartOffcanvas() {
                             <button
                               type="button"
                               className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
-                              onClick={() => setCheckoutStep(2)}
+                              onClick={() => changeCheckoutStep(2)}
                             >
                               CONTINUAR ›
                             </button>
@@ -471,14 +496,14 @@ export function CartOffcanvas() {
                             <button
                               type="button"
                               className="btn btn-outline-secondary rounded-pill px-4 py-2"
-                              onClick={() => setCheckoutStep(1)}
+                              onClick={() => changeCheckoutStep(1)}
                             >
                               Volver
                             </button>
                             <button
                               type="button"
                               className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
-                              onClick={() => setCheckoutStep(3)}
+                              onClick={() => changeCheckoutStep(3)}
                             >
                               CONTINUAR ›
                             </button>
@@ -548,14 +573,14 @@ export function CartOffcanvas() {
                             <button
                               type="button"
                               className="btn btn-outline-secondary rounded-pill px-4 py-2"
-                              onClick={() => setCheckoutStep(2)}
+                              onClick={() => changeCheckoutStep(2)}
                             >
                               Corregir información
                             </button>
                             <button
                               type="button"
                               className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
-                              onClick={() => setCheckoutStep(4)}
+                              onClick={() => changeCheckoutStep(4)}
                             >
                               CONTINUAR ›
                             </button>
@@ -621,7 +646,7 @@ export function CartOffcanvas() {
                             <button
                               type="button"
                               className="btn btn-outline-secondary rounded-pill px-4 py-2"
-                              onClick={() => setCheckoutStep(3)}
+                              onClick={() => changeCheckoutStep(3)}
                             >
                               Corregir información
                             </button>
