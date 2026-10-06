@@ -54,16 +54,10 @@ export function ProductDetailView() {
     localStorage.setItem('floristeria_cart', JSON.stringify(savedCart));
     window.dispatchEvent(new Event('cartUpdated'));
 
-    // Abrir automáticamente el Offcanvas del Carrito
-    const cartElement = document.getElementById('cartOffcanvas');
-    if (cartElement) {
-      if (window.bootstrap && window.bootstrap.Offcanvas) {
-        const bsOffcanvas = window.bootstrap.Offcanvas.getOrCreateInstance(cartElement);
-        bsOffcanvas.show();
-      } else {
-        const triggerBtn = document.getElementById('desktopCartTrigger') || document.getElementById('mobileCartTrigger');
-        if (triggerBtn) triggerBtn.click();
-      }
+    // ACTIVACIÓN AUTOMÁTICA DEL CARRITO GLOBAL
+    const cartBtn = document.getElementById('desktopCartBtn') || document.getElementById('mobileCartBtn') || document.querySelector('[data-bs-target="#cartOffcanvas"]');
+    if (cartBtn) {
+      cartBtn.click();
     }
   };
 
