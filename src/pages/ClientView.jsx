@@ -17,7 +17,7 @@ export function ClientView() {
     return JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
   });
 
-  // Estado inicial NULL (Ninguna categoría seleccionada de entrada)
+  // Estado inicial NULL (Sin categoría ni subcategoría seleccionada por defecto)
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,6 +31,38 @@ export function ClientView() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [customNote, setCustomNote] = useState('');
+
+  // Manejo del Historial para el botón 'Atrás' en celulares
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (event.state && event.state.category) {
+        setSelectedCategory(event.state.category);
+        setSelectedSubCategory(event.state.subCategory || null);
+      } else {
+        setSelectedCategory(null);
+        setSelectedSubCategory(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const selectServiceCategory = (catId, subCatId = null) => {
+    setSelectedCategory(catId);
+    setSelectedSubCategory(subCatId);
+
+    // Guardar estado en el historial para interceptar el botón Atrás del celular
+    window.history.pushState({ category: catId, subCategory: subCatId }, '', '');
+  };
+
+  const handleBackToMenu = () => {
+    setSelectedCategory(null);
+    setSelectedSubCategory(null);
+    if (window.history.state && window.history.state.category) {
+      window.history.back();
+    }
+  };
 
   useEffect(() => {
     const syncCart = () => {
@@ -96,17 +128,15 @@ export function ClientView() {
     setShowCheckoutModal(true);
   };
 
-  // Filtrar productos únicamente cuando hay una categoría seleccionada
+  // Filtrado estricto por categoría y subcategoría
   const filteredProducts = selectedCategory
     ? products.filter((p) => {
         if (selectedCategory === 'RAMOS') {
-          if (selectedSubCategory) {
-            return (
-              p.category === 'RAMOS' &&
-              (p.subCategory === selectedSubCategory || p.name.toUpperCase().includes(selectedSubCategory))
-            );
-          }
-          return p.category === 'RAMOS' || p.category.includes('RAMO');
+          if (!selectedSubCategory) return false; // Si no ha presionado ninguna variedad de Ramos, no muestra productos
+          return (
+            p.category === 'RAMOS' &&
+            (p.subCategory === selectedSubCategory || p.name.toUpperCase().includes(selectedSubCategory))
+          );
         }
         return p.category.includes(selectedCategory);
       })
@@ -121,13 +151,13 @@ export function ClientView() {
     { id: 'PELUCHES', label: 'PELUCHES', icon: '🧸', desc: 'Detalles afelpados y tiernos' },
     { id: 'CHOCOLATES', label: 'CHOCOLATES', icon: '🍫', desc: 'Cajas de golosinas y bombones' },
     { id: 'GLOBOS', label: 'GLOBOS', icon: '🎈', desc: 'Arreglos y decoraciones con helio' },
-    { id: 'CORONAS', label: 'CORONAS', icon: '🕊️', desc: 'Arreglos para condolencias' },
+    { id: 'CORONAS', label: 'CORONAS', icon: '👑', desc: 'Tiaras y coronas finas de cristal' },
     { id: 'MARIPOSAS', label: 'MARIPOSAS', icon: '🦋', desc: 'Detalles con mariposas luminosas' },
     { id: 'ESPECIALES', label: 'ESPECIALES', icon: '✨', desc: 'Diseños únicos e inolvidables' }
   ];
 
+  // Variedades de Ramos (sin selección automática)
   const ramosSubcategories = [
-    { id: null, label: 'VER TODOS LOS RAMOS' },
     { id: 'NATURALES', label: 'RAMOS NATURALES' },
     { id: 'ETERNOS', label: 'RAMOS ETERNOS' },
     { id: 'FUNEBRES', label: 'RAMOS FÚNEBRES' }
@@ -208,7 +238,7 @@ export function ClientView() {
       </div>
 
       <div className="container px-4 py-4">
-        {/* INDICADOR MODALIDAD CAJA */}
+        {/* INDICADOR MODO CAJA */}
         {isCajaOrAdmin && (
           <div className="d-flex justify-content-end mb-3">
             <span className="badge bg-success fs-6 px-4 py-2 rounded-pill shadow">
@@ -217,7 +247,7 @@ export function ClientView() {
           </div>
         )}
 
-        {/* SI NO HAY CATEGORÍA SELECCIONADA: MOSTRAR MÓDULOS DE SERVICIOS LIMPIDOS */}
+        {/* 1. SI NO HAY CATEGORÍA SELECCIONADA */}
         {!selectedCategory ? (
           <div>
             <div className="text-center mb-4">
@@ -231,10 +261,7 @@ export function ClientView() {
                   <div
                     className="card h-100 border-secondary bg-black rounded-4 p-4 text-center cursor-pointer service-card shadow-lg hover-border-success"
                     style={{ backgroundColor: '#181818', cursor: 'pointer', transition: 'transform 0.2s' }}
-                    onClick={() => {
-                      setSelectedCategory(srv.id);
-                      setSelectedSubCategory(null);
-                    }}
+                    onClick={() => selectServiceCategory(srv.id)}
                   >
                     <div className="display-4 mb-2">{srv.icon}</div>
                     <h5 className="fw-bold text-white text-uppercase mb-1">{srv.label}</h5>
@@ -245,16 +272,13 @@ export function ClientView() {
             </div>
           </div>
         ) : (
-          /* SI YA SELECCIONÓ UNA CATEGORÍA: MOSTRAR PRODUCTOS Y BOTÓN DE REGRESO */
+          /* 2. SI HAY CATEGORÍA SELECCIONADA */
           <div>
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary gap-2">
               <button
                 type="button"
                 className="btn btn-outline-light rounded-pill px-4 fw-bold"
-                onClick={() => {
-                  setSelectedCategory(null);
-                  setSelectedSubCategory(null);
-                }}
+                onClick={handleBackToMenu}
               >
                 <i className="bi bi-arrow-left me-2"></i> Volver al Menú de Servicios
               </button>
@@ -264,22 +288,22 @@ export function ClientView() {
               </h3>
             </div>
 
-            {/* SUBMENÚ SOLO SI SELECCIONÓ RAMOS */}
+            {/* BOTONES DE VARIEDAD DE RAMOS (NINGUNO SELECCIONADO AL ENTRAR) */}
             {selectedCategory === 'RAMOS' && (
               <div className="bg-black p-3 rounded-4 border border-success border-opacity-50 mb-4 max-w-2xl mx-auto text-center shadow">
-                <small className="text-success fw-bold text-uppercase d-block mb-2">
-                  <i className="bi bi-flower1 me-1"></i> Selecciona la variedad de Ramos:
+                <small className="text-success fw-bold text-uppercase d-block mb-3 fs-6">
+                  <i className="bi bi-flower1 me-1"></i> Por favor selecciona qué variedad de Ramos buscas:
                 </small>
                 <div className="d-flex flex-wrap justify-content-center gap-2">
                   {ramosSubcategories.map((sub) => (
                     <button
                       key={sub.label}
                       type="button"
-                      className={`btn btn-sm ${
+                      className={`btn ${
                         selectedSubCategory === sub.id
-                          ? 'btn-warning text-dark fw-bold'
+                          ? 'btn-warning text-dark fw-bold shadow-lg scale-105'
                           : 'btn-outline-success text-white'
-                      } rounded-pill px-3`}
+                      } rounded-pill px-4 py-2 fw-semibold`}
                       onClick={() => setSelectedSubCategory(sub.id)}
                     >
                       {sub.label}
@@ -289,11 +313,17 @@ export function ClientView() {
               </div>
             )}
 
-            {/* PRODUCTOS FILTRADOS */}
+            {/* CATALOGO Y ESTADOS DE CARGA / SELECCIÓN */}
             {loading ? (
               <div className="text-center py-5">
                 <div className="spinner-border text-success" role="status"></div>
                 <p className="mt-2 text-muted">Cargando productos...</p>
+              </div>
+            ) : selectedCategory === 'RAMOS' && !selectedSubCategory ? (
+              <div className="text-center py-5 bg-black rounded-4 border border-secondary my-4">
+                <i className="bi bi-hand-index-thumb display-3 text-success d-block mb-2"></i>
+                <h5 className="text-light fw-normal">Por favor presiona una de las opciones arriba:</h5>
+                <p className="text-muted small">RAMOS NATURALES, RAMOS ETERNOS o RAMOS FÚNEBRES</p>
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-5 bg-black rounded-4 border border-secondary my-4">
@@ -301,7 +331,7 @@ export function ClientView() {
                 <h5 className="text-muted">No hay productos disponibles en esta sección por el momento.</h5>
                 <button
                   className="btn btn-outline-success rounded-pill mt-3 px-4"
-                  onClick={() => setSelectedCategory(null)}
+                  onClick={handleBackToMenu}
                 >
                   Elegir otro servicio
                 </button>
@@ -348,7 +378,7 @@ export function ClientView() {
         )}
       </div>
 
-      {/* OFFCANVAS / CARRITO EN MODO OSCURO */}
+      {/* OFFCANVAS CARRITO */}
       <div
         className="offcanvas offcanvas-end bg-black text-white border-start border-secondary"
         tabIndex="-1"
