@@ -20,10 +20,14 @@ export function AdminProductsView() {
 
   useEffect(() => {
     const unsubscribe = subscribeToProducts((data) => {
-      setProducts(data);
+      setProducts(data || []);
       setLoading(false);
     });
-    return () => unsubscribe && unsubscribe();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const categories = [
@@ -44,7 +48,7 @@ export function AdminProductsView() {
   ];
 
   const handleImageChange = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
     if (files.length + existingImages.length > 10) {
       alert('Solo puedes subir hasta 10 imágenes por producto.');
       return;
@@ -112,7 +116,7 @@ export function AdminProductsView() {
       resetForm();
     } catch (error) {
       console.error('Error al guardar el producto:', error);
-      alert('Ocurrió un error al guardar en Firestore.');
+      alert('Ocurrió un error al guardar en la base de datos.');
     } finally {
       setSaving(false);
     }
@@ -184,7 +188,7 @@ export function AdminProductsView() {
               </select>
             </div>
 
-            {/* DESPLEGABLE DINÁMICO DE SUBCATEGORÍA PARA RAMOS */}
+            {/* SUBCATEGORÍA DINÁMICA PARA RAMOS */}
             {category === 'RAMOS' && (
               <div className="col-md-6 bg-light p-2 rounded-3 border border-success">
                 <label className="form-label fw-bold text-success">
@@ -355,7 +359,7 @@ export function AdminProductsView() {
                         className="btn btn-sm btn-outline-danger"
                         onClick={() => handleDelete(p.id)}
                       >
-                        🗑️ Eliminar
+                        🗑️️ Eliminar
                       </button>
                     </td>
                   </tr>
