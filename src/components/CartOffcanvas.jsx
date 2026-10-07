@@ -136,17 +136,37 @@ export function CartOffcanvas() {
   }, []);
 
   useEffect(() => {
-    const syncCart = () => {
-      const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
-      setCart(savedCart);
-    };
+    const unsubscribe = subscribeToProducts((data) => {
+      const mappedProducts = data.map((item) => {
+        const cat = (item.category || '').toUpperCase().trim();
+        const sub = (item.subCategory || '').toUpperCase().trim();
 
-    window.addEventListener('cartUpdated', syncCart);
-    window.addEventListener('storage', syncCart);
-    return () => {
-      window.removeEventListener('cartUpdated', syncCart);
-      window.removeEventListener('storage', syncCart);
-    };
+        // Si la categoría es RAMOS, combinamos con su subcategoría (NATURALES, ETERNOS, FUNEBRES)
+        let finalCategory = cat;
+        if (cat === 'RAMOS') {
+          if (sub.includes('ETERNO')) {
+            finalCategory = 'RAMOS_ETERNOS';
+          } else if (sub.includes('FUNEBRE') || sub.includes('FÚNEBRE')) {
+            finalCategory = 'RAMOS_FUNEBRES';
+          } else {
+            finalCategory = 'RAMOS_NATURALES';
+          }
+        }
+
+        return {
+          id: item.id,
+          name: item.title || item.name || 'Arreglo Floral',
+          price: Number(item.price) || 0,
+          category: finalCategory,
+          image: item.images && item.images.length > 0 
+            ? item.images[0] 
+            : (item.image || 'https://via.placeholder.com/300?text=Sin+Imagen')
+        };
+      });
+      setProducts(mappedProducts);
+    });
+
+    return () => unsubscribe && unsubscribe();
   }, []);
 
   const updateCart = (newCart) => {
