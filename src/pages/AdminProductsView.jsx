@@ -18,21 +18,29 @@ export function AdminProductsView() {
   const [sku, setSku] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('RAMOS');
-  const [subCategory, setSubCategory] = useState('');
+  const [subCategory, setSubCategory] = useState('RAMOS NATURALES');
   const [description, setDescription] = useState('');
 
   // Manejo de Imágenes
-  const [existingImages, setExistingImages] = useState([]); // URLs ya guardadas en BD
-  const [newImageFiles, setNewImageFiles] = useState([]);   // Archivos locales (File)
-  const [newImagePreviews, setNewImagePreviews] = useState([]); // Blob URLs para previsualizar
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImageFiles, setNewImageFiles] = useState([]);
+  const [newImagePreviews, setNewImagePreviews] = useState([]);
 
   const categories = [
     'RAMOS',
+    'DESAYUNOS',
+    'PELUCHES',
     'CHOCOLATES',
     'GLOBOS',
     'CORONAS',
-    'PELUCHES',
+    'MARIPOSAS',
     'ESPECIALES'
+  ];
+
+  const ramosSubcategories = [
+    'NATURALES',
+    'ETERNOS',
+    'FUNEBRES'
   ];
 
   const fetchProductsList = async () => {
@@ -51,7 +59,17 @@ export function AdminProductsView() {
     fetchProductsList();
   }, []);
 
-  // Agregar nuevos archivos seleccionados (acumulando con los anteriores)
+  // Al cambiar de categoría, ajustar el valor por defecto de subCategoría
+  const handleCategoryChange = (e) => {
+    const selectedCat = e.target.value;
+    setCategory(selectedCat);
+    if (selectedCat === 'RAMOS') {
+      setSubCategory('NATURALES');
+    } else {
+      setSubCategory('');
+    }
+  };
+
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -63,25 +81,20 @@ export function AdminProductsView() {
     }
 
     const selectedFiles = files.slice(0, totalAllowed);
-
-    // Generar previews
     const newPreviews = selectedFiles.map((file) => URL.createObjectURL(file));
 
     setNewImageFiles((prev) => [...prev, ...selectedFiles]);
     setNewImagePreviews((prev) => [...prev, ...newPreviews]);
 
-    // Limpiar input para permitir seleccionar el mismo archivo si se requiere
     e.target.value = '';
   };
 
-  // Quitar una imagen de la lista local
   const removeNewImage = (index) => {
     URL.revokeObjectURL(newImagePreviews[index]);
     setNewImageFiles((prev) => prev.filter((_, i) => i !== index));
     setNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Quitar una imagen guardada previamente en BD
   const removeExistingImage = (index) => {
     setExistingImages((prev) => prev.filter((_, i) => i !== index));
   };
@@ -91,8 +104,16 @@ export function AdminProductsView() {
     setTitle(prod.title || prod.name || '');
     setSku(prod.sku || prod.code || '');
     setPrice(prod.price || '');
-    setCategory((prod.category || 'RAMOS').toUpperCase());
-    setSubCategory(prod.subCategory || '');
+    const cat = (prod.category || 'RAMOS').toUpperCase();
+    setCategory(cat);
+    
+    // Normalizar subcategoría de ramos
+    let sub = prod.subCategory || '';
+    if (cat === 'RAMOS' && !sub) {
+      sub = 'NATURALES';
+    }
+    setSubCategory(sub);
+
     setDescription(prod.description || '');
 
     const imgs = prod.images && prod.images.length > 0 
@@ -112,7 +133,7 @@ export function AdminProductsView() {
     setSku('');
     setPrice('');
     setCategory('RAMOS');
-    setSubCategory('');
+    setSubCategory('NATURALES');
     setDescription('');
     setExistingImages([]);
     setNewImageFiles([]);
@@ -140,9 +161,9 @@ export function AdminProductsView() {
         sku: sku.trim(),
         price: Number(price) || 0,
         category: category.toUpperCase(),
-        subCategory: subCategory.trim(),
+        subCategory: subCategory.toUpperCase().trim(),
         description: description.trim(),
-        existingImages // URLs a conservar
+        existingImages
       };
 
       if (editingId) {
@@ -216,12 +237,12 @@ export function AdminProductsView() {
                 />
               </div>
 
-              <div className="col-md-4">
+              <div className="col-md-6">
                 <label className="form-label small fw-bold text-muted text-uppercase mb-1">Categoría Principal *</label>
                 <select
                   className="form-select py-3 rounded-3 border-light-subtle fw-bold"
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={handleCategoryChange}
                 >
                   {categories.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -229,22 +250,39 @@ export function AdminProductsView() {
                 </select>
               </div>
 
-              <div className="col-md-4">
-                <label className="form-label small fw-bold text-muted text-uppercase mb-1">Subcategoría</label>
-                <input
-                  type="text"
-                  className="form-control py-3 rounded-3 border-light-subtle"
-                  placeholder="Ej: Rosas, Tulipanes, Cajas"
-                  value={subCategory}
-                  onChange={(e) => setSubCategory(e.target.value)}
-                />
+              {/* SUBCATEGORÍA DINÁMICA SEGÚN LA CATEGORÍA */}
+              <div className="col-md-6">
+                <label className="form-label small fw-bold text-muted text-uppercase mb-1">
+                  Subcategoría {category === 'RAMOS' ? '*' : '(Opcional)'}
+                </label>
+                
+                {category === 'RAMOS' ? (
+                  <select
+                    className="form-select py-3 rounded-3 border-light-subtle fw-bold text-success"
+                    value={subCategory}
+                    onChange={(e) => setSubCategory(e.target.value)}
+                    required
+                  >
+                    {ramosSubcategories.map((sub) => (
+                      <option key={sub} value={sub}>RAMOS {sub}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="form-control py-3 rounded-3 border-light-subtle"
+                    placeholder="Ej: Cajas, Peluches grandes, etc."
+                    value={subCategory}
+                    onChange={(e) => setSubCategory(e.target.value)}
+                  />
+                )}
               </div>
 
-              <div className="col-md-4">
+              <div className="col-md-12">
                 <label className="form-label small fw-bold text-muted text-uppercase mb-1">Precio ($ COP) *</label>
                 <input
                   type="number"
-                  className="form-control py-3 rounded-3 border-light-subtle fw-bold text-success"
+                  className="form-control py-3 rounded-3 border-light-subtle fw-bold text-success fs-5"
                   placeholder="Ej: 89000"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
@@ -263,13 +301,12 @@ export function AdminProductsView() {
                 ></textarea>
               </div>
 
-              {/* MÓDULO MEJORADO DE SELECCIÓN DE IMÁGENES */}
+              {/* MÓDULO DE IMÁGENES MÚLTIPLES */}
               <div className="col-12 mt-4">
                 <label className="form-label small fw-bold text-muted text-uppercase d-block mb-2">
                   Imágenes del Producto (Máximo 10):
                 </label>
 
-                {/* BOTÓN CREADO Y MEJORADO PARA SELECCIONAR / AGREGAR IMÁGENES */}
                 <div className="d-flex flex-wrap align-items-center gap-3 bg-light p-3 rounded-3 border">
                   <label className="btn btn-outline-dark fw-bold rounded-pill px-4 py-2 d-inline-flex align-items-center gap-2 cursor-pointer shadow-sm">
                     <i className="bi bi-cloud-arrow-up-fill fs-5 text-primary"></i>
@@ -289,7 +326,6 @@ export function AdminProductsView() {
                   </small>
                 </div>
 
-                {/* PREVISUALIZACIÓN DE IMÁGENES GUARDADAS EN BD */}
                 {existingImages.length > 0 && (
                   <div className="mt-3">
                     <small className="fw-bold text-muted d-block mb-2 text-uppercase">Imágenes guardadas:</small>
@@ -316,7 +352,6 @@ export function AdminProductsView() {
                   </div>
                 )}
 
-                {/* PREVISUALIZACIÓN DE NUEVAS IMÁGENES A SUBIR */}
                 {newImagePreviews.length > 0 && (
                   <div className="mt-3">
                     <small className="fw-bold text-primary d-block mb-2 text-uppercase">Nuevas imágenes a subir:</small>
@@ -414,7 +449,9 @@ export function AdminProductsView() {
                             {p.category}
                           </span>
                         </td>
-                        <td className="text-muted">{p.subCategory || '—'}</td>
+                        <td className="text-warning fw-bold">
+                          {p.subCategory ? `RAMOS ${p.subCategory}` : '—'}
+                        </td>
                         <td className="fw-bold text-success">
                           ${Number(p.price || 0).toLocaleString('es-CO')}
                         </td>
