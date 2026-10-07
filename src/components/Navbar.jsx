@@ -57,15 +57,14 @@ export function Navbar() {
           <div className="d-flex align-items-center gap-2 d-lg-none me-2">
             <button
               id="mobileCartBtn"
-              className="btn btn-outline-success position-relative rounded-circle border-0"
+              className="btn btn-success position-relative rounded-pill px-3 py-1 shadow"
               type="button"
               data-bs-toggle="offcanvas"
               data-bs-target="#cartOffcanvas"
-              aria-controls="cartOffcanvas"
             >
               <i className="bi bi-cart3 fs-4 text-white"></i>
               {cartCount > 0 && (
-                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                <span className="position-absolute top-0 start-100 translate-middle badge rounded-circle bg-danger fs-6 border border-white">
                   {cartCount}
                 </span>
               )}
@@ -84,47 +83,32 @@ export function Navbar() {
           <div className="collapse navbar-collapse" id="navbarNav">
             <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
               <li className="nav-item">
-                <Link
-                  className={`nav-link px-3 rounded-pill fw-medium ${isActive('/') && location.pathname === '/' ? 'active bg-success text-white' : 'text-light'}`}
-                  to="/"
-                >
+                <Link ${isActive('/') && '/' 'active 'text-light'}`} : ? bg-success className="{`nav-link" fw-medium location.pathname="==" px-3 rounded-pill text-white' to="/">
                   🏠 Tienda
                 </Link>
               </li>
               <li className="nav-item">
-                <Link
-                  className={`nav-link px-3 rounded-pill fw-medium ${isActive('/rastreo') ? 'active bg-warning text-dark' : 'text-light'}`}
-                  to="/rastreo"
-                >
+                <Link ${isActive('/rastreo') 'active 'text-light'}`} : ? bg-warning className="{`nav-link" fw-medium px-3 rounded-pill text-dark' to="/rastreo">
                   🔍 Rastrear Pedido
                 </Link>
               </li>
               {user && (role === 'florist' || role === 'taller' || role === 'admin') && (
                 <li className="nav-item">
-                  <Link
-                    className={`nav-link px-3 rounded-pill fw-medium ${isActive('/taller') ? 'active bg-info text-dark' : 'text-light'}`}
-                    to="/taller"
-                  >
+                  <Link ${isActive('/taller') 'active 'text-light'}`} : ? bg-info className="{`nav-link" fw-medium px-3 rounded-pill text-dark' to="/taller">
                     ✂ Taller
                   </Link>
                 </li>
               )}
               {user && (role === 'delivery' || role === 'domicilio' || role === 'admin') && (
                 <li className="nav-item">
-                  <Link
-                    className={`nav-link px-3 rounded-pill fw-medium ${isActive('/domicilios') ? 'active bg-primary text-white' : 'text-light'}`}
-                    to="/domicilios"
-                  >
+                  <Link ${isActive('/domicilios') 'active 'text-light'}`} : ? bg-primary className="{`nav-link" fw-medium px-3 rounded-pill text-white' to="/domicilios">
                     🚚 Domicilio
                   </Link>
                 </li>
               )}
               {user && role === 'admin' && (
                 <li className="nav-item">
-                  <Link
-                    className={`nav-link px-3 rounded-pill fw-medium ${isActive('/admin') ? 'active bg-danger text-white' : 'text-light'}`}
-                    to="/admin"
-                  >
+                  <Link ${isActive('/admin') 'active 'text-light'}`} : ? bg-danger className="{`nav-link" fw-medium px-3 rounded-pill text-white' to="/admin">
                     📦 Admin Productos
                   </Link>
                 </li>
@@ -132,19 +116,19 @@ export function Navbar() {
             </ul>
 
             <div className="d-flex align-items-center gap-3">
-              {/* Botón Carrito Desktop */}
+              {/* BOTÓN CARRITO DESKTOP MÁS GRANDE Y LLAMATIVO */}
               <button
                 id="desktopCartBtn"
                 type="button"
-                className="btn btn-outline-success text-white position-relative rounded-pill px-3 py-1 d-none d-lg-flex align-items-center gap-2"
+                className="btn btn-success text-white position-relative rounded-pill px-4 py-2 d-none d-lg-flex align-items-center gap-2 shadow-lg fw-bold border border-2 border-warning"
                 data-bs-toggle="offcanvas"
                 data-bs-target="#cartOffcanvas"
-                aria-controls="cartOffcanvas"
+                style={{ transition: 'transform 0.2s', backgroundColor: '#198754' }}
               >
-                <i className="bi bi-cart3 fs-5 text-success"></i>
-                <span className="fw-semibold">Carrito</span>
+                <i className="bi bi-cart3 fs-4"></i>
+                <span className="fs-6 text-uppercase tracking-wide">Carrito</span>
                 {cartCount > 0 && (
-                  <span className="badge rounded-pill bg-danger ms-1">
+                  <span className="badge rounded-circle bg-danger fs-6 ms-1 border border-white">
                     {cartCount}
                   </span>
                 )}
@@ -172,10 +156,7 @@ export function Navbar() {
                   </button>
                 </div>
               ) : (
-                <Link
-                  to="/login"
-                  className="btn btn-success btn-sm d-flex align-items-center gap-2 px-4 py-2 rounded-pill fw-semibold text-white text-decoration-none shadow-sm"
-                >
+                <Link className="btn btn-success btn-sm d-flex align-items-center gap-2 px-4 py-2 rounded-pill fw-semibold text-white text-decoration-none shadow-sm" to="/login">
                   <i className="bi bi-box-arrow-in-right fs-6"></i>
                   <span>Iniciar Sesión</span>
                 </Link>
@@ -185,8 +166,7 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* COMPONENTE GLOBAL DEL CARRITO DISPONIBLE EN TODAS LAS VISTAS */}
-      <CartOffcanvas />
+      <CartOffcanvas/>
     </>
   );
 }

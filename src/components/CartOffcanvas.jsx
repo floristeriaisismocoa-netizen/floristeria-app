@@ -21,6 +21,12 @@ export function CartOffcanvas() {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Estado para la categoría de recomendados seleccionada en Paso 1
+  const [selectedAddonCategory, setSelectedAddonCategory] = useState(null);
+
+  // Estado para la animación de carrito volando por la pantalla
+  const [isCartAnimating, setIsCartAnimating] = useState(false);
+
   // Form states - REMITENTE
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('');
@@ -40,7 +46,18 @@ export function CartOffcanvas() {
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
 
-  // Soporte para botón "Atrás" en celulares durante el checkout
+  // Menú de recomendados en el ORDEN SOLICITADO
+  const addonCategories = [
+    { id: 'CHOCOLATES', label: 'CHOCOLATES', icon: '🍫', desc: 'Cajas de bombones y golosinas' },
+    { id: 'GLOBOS', label: 'GLOBOS', icon: '🎈', desc: 'Decoraciones con helio' },
+    { id: 'CORONAS', label: 'CORONAS', icon: '👑', desc: 'Tiaras y coronas finas' },
+    { id: 'MARIPOSAS', label: 'MARIPOSAS', icon: '🦋', desc: 'Detalles brillantes' },
+    { id: 'PELUCHES', label: 'PELUCHES', icon: '🧸', desc: 'Muñecos afelpados' },
+    { id: 'RAMOS', label: 'RAMOS', icon: '🌹', desc: 'Variedades florales' },
+    { id: 'DESAYUNOS', label: 'DESAYUNOS', icon: '🍳', desc: 'Sorpresas matutinas' },
+    { id: 'ESPECIALES', label: 'ESPECIALES', icon: '✨', desc: 'Diseños únicos' }
+  ];
+
   useEffect(() => {
     const handlePopState = (event) => {
       if (showCheckoutModal) {
@@ -73,6 +90,7 @@ export function CartOffcanvas() {
       }
     }
     setCheckoutStep(1);
+    setSelectedAddonCategory(null);
     setShowCheckoutModal(true);
     window.history.pushState({ checkoutStep: 1 }, '', '');
   };
@@ -135,17 +153,23 @@ export function CartOffcanvas() {
     window.dispatchEvent(new Event('cartUpdated'));
   };
 
-  const addToCart = (product) => {
-    const existing = cart.find((item) => item.id === product.id);
-    let updated;
-    if (existing) {
-      updated = cart.map((item) =>
-        item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-      );
-    } else {
-      updated = [...cart, { ...product, quantity: 1 }];
-    }
-    updateCart(updated);
+  // Función para agregar producto con animación de carrito de 5 segundos
+  const handleAddAddonWithAnimation = (product) => {
+    setIsCartAnimating(true);
+
+    setTimeout(() => {
+      setIsCartAnimating(false);
+      const existing = cart.find((item) => item.id === product.id);
+      let updated;
+      if (existing) {
+        updated = cart.map((item) =>
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      } else {
+        updated = [...cart, { ...product, quantity: 1 }];
+      }
+      updateCart(updated);
+    }, 5000);
   };
 
   const removeFromCart = (productId) => {
@@ -154,9 +178,10 @@ export function CartOffcanvas() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const addOnProducts = products.filter((p) => 
-    ['CHOCOLATES', 'GLOBOS', 'CORONAS', 'PELUCHES', 'ESPECIALES'].includes(p.category)
-  ).slice(0, 6);
+  // Productos filtrados según el menú seleccionado en recomendados
+  const addonProducts = selectedAddonCategory
+    ? products.filter((p) => p.category.includes(selectedAddonCategory))
+    : [];
 
   const getNextOrderNumber = async () => {
     try {
@@ -219,7 +244,6 @@ export function CartOffcanvas() {
         customerPhone: recipientPhone.trim() || senderPhone.trim() || 'N/A',
         deliveryAddress: deliveryType === 'DOMICILIO' ? `${deliveryAddress.trim()} (${deliveryNotes.trim()})` : 'Retiro Presencial en Tienda',
         customNote: cardMessage.trim(),
-        // ESTADO INICIAL: ENVIADO A TALLER
         status: 'EN_PREPARACION',
         createdBy: user ? user.email : 'cliente_web',
         isPhysicalStoreSale: Boolean(isCajaOrAdmin),
@@ -242,6 +266,26 @@ export function CartOffcanvas() {
 
   return (
     <>
+      {/* ANIMACIÓN DEL CARRITO VOLADOR (5 SEGUNDOS) */}
+      {isCartAnimating && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 2000
+          }}
+        >
+          <div className="text-center p-4 rounded-4 bg-dark border border-success shadow-lg" style={{ maxWidth: '380px' }}>
+            <div className="cart-flying-animation mb-3">
+              <span className="display-1 d-block animate-bounce">🛒</span>
+            </div>
+            <h4 className="fw-bold text-success mb-2">¡Añadiendo a tu pedido!</h4>
+            <p className="text-light small mb-3">Actualizando el carrito de compras en tiempo real...</p>
+            <div className="spinner-border text-success" role="status"></div>
+          </div>
+        </div>
+      )}
+
       {/* PANEL LATERAL / CARRITO OFFCANVAS */}
       <div
         className="offcanvas offcanvas-end bg-black text-white border-start border-secondary"
@@ -270,17 +314,18 @@ export function CartOffcanvas() {
           ) : (
             <>
               <div className="d-flex flex-column gap-2 overflow-auto mb-3 pe-1">
-                {cart.map((item) => (
-                  <div key={item.id} className="d-flex align-items-center justify-content-between bg-dark p-2 rounded-3 border border-secondary">
-                    <div className="d-flex align-items-center gap-3">
+                {cart.map((item, idx) => (
+                  <div key={item.id} className="d-flex align-items-center justify-content-between bg-dark p-2 rounded-3 border border-secondary position-relative">
+                    <span className="badge bg-success rounded-circle me-1">{idx + 1}</span>
+                    <div className="d-flex align-items-center gap-2 flex-grow-1">
                       <img
                         src={item.image}
                         alt={item.name}
                         className="rounded"
-                        style={{ width: '50px', height: '50px', objectFit: 'cover' }}
+                        style={{ width: '45px', height: '45px', objectFit: 'cover' }}
                       />
                       <div>
-                        <h6 className="mb-0 fw-bold text-white fs-6">{item.name}</h6>
+                        <h6 className="mb-0 fw-bold text-white fs-6 text-truncate" style={{ maxWidth: '140px' }}>{item.name}</h6>
                         <small className="text-success fw-bold">
                           {item.quantity} x ${item.price.toLocaleString('es-CO')}
                         </small>
@@ -317,7 +362,7 @@ export function CartOffcanvas() {
         </div>
       </div>
 
-      {/* MODAL CHECKOUT CON NAVEGACIÓN MÓVIL SEGURA */}
+      {/* MODAL CHECKOUT REESTRUCTURADO */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"
@@ -364,50 +409,88 @@ export function CartOffcanvas() {
                   <div className="col-lg-8">
                     <div className="bg-white p-4 p-md-5 rounded-4 border shadow-sm">
 
-                      {/* PASO 1 */}
+                      {/* PASO 1: NUEVO MENÚ DE SERVICIOS ADICIONALES */}
                       {checkoutStep === 1 && (
                         <div>
-                          <h3 className="fw-bold text-dark mb-1">Antes de continuar, agrega...</h3>
-                          <p className="text-muted small mb-4">Estos productos complementan tu compra</p>
+                          <h3 className="fw-bold text-dark mb-1">¿Deseas complementar tu compra con algo más?</h3>
+                          <p className="text-muted small mb-4">Elige una categoría para desplegar sus adiciones:</p>
 
-                          <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
-                            {addOnProducts.map((add) => (
-                              <div className="col" key={add.id}>
-                                <div className="card h-100 border-0 bg-light p-3 position-relative rounded-4 text-center">
-                                  <button
-                                    type="button"
-                                    className="btn btn-white bg-white shadow-sm position-absolute top-0 end-0 m-2 rounded-circle fw-bold fs-5 border"
-                                    style={{ width: '36px', height: '36px', lineHeight: 1 }}
-                                    onClick={() => addToCart(add)}
+                          {!selectedAddonCategory ? (
+                            <div className="row row-cols-2 row-cols-md-4 g-3 mb-4">
+                              {addonCategories.map((cat) => (
+                                <div className="col" key={cat.id}>
+                                  <div
+                                    className="card h-100 border p-3 text-center rounded-4 cursor-pointer hover-shadow bg-light"
+                                    style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                                    onClick={() => setSelectedAddonCategory(cat.id)}
                                   >
-                                    +
-                                  </button>
-                                  <img
-                                    src={add.image}
-                                    alt={add.name}
-                                    className="rounded-3 mb-2 mx-auto"
-                                    style={{ height: '120px', objectFit: 'contain', width: '100%' }}
-                                  />
-                                  <h6 className="fw-bold text-dark fs-7 mb-1 text-truncate">{add.name}</h6>
-                                  <span className="text-dark fw-bold small">${add.price.toLocaleString('es-CO')}</span>
+                                    <div className="fs-1 mb-1">{cat.icon}</div>
+                                    <h6 className="fw-bold text-dark text-uppercase mb-1 fs-7">{cat.label}</h6>
+                                    <small className="text-muted fs-8 d-none d-md-block">{cat.desc}</small>
+                                  </div>
                                 </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="mb-4">
+                              <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-dark btn-sm rounded-pill fw-bold"
+                                  onClick={() => setSelectedAddonCategory(null)}
+                                >
+                                  ← Ver todas las categorías
+                                </button>
+                                <span className="fw-bold text-success text-uppercase">
+                                  Categoría: {selectedAddonCategory}
+                                </span>
                               </div>
-                            ))}
-                          </div>
 
-                          <div className="d-flex justify-content-end mt-5">
+                              {addonProducts.length === 0 ? (
+                                <p className="text-muted text-center py-4">No hay adicionales en esta categoría.</p>
+                              ) : (
+                                <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                                  {addonProducts.map((add) => (
+                                    <div className="col" key={add.id}>
+                                      <div className="card h-100 border-0 bg-light p-3 position-relative rounded-4 text-center">
+                                        <button
+                                          type="button"
+                                          className="btn btn-success text-white shadow-sm position-absolute top-0 end-0 m-2 rounded-circle fw-bold fs-5 border-0"
+                                          style={{ width: '36px', height: '36px', lineHeight: 1 }}
+                                          onClick={() => handleAddAddonWithAnimation(add)}
+                                          title="Agregar adicional"
+                                        >
+                                          +
+                                        </button>
+                                        <img
+                                          src={add.image}
+                                          alt={add.name}
+                                          className="rounded-3 mb-2 mx-auto"
+                                          style={{ height: '110px', objectFit: 'contain', width: '100%' }}
+                                        />
+                                        <h6 className="fw-bold text-dark fs-7 mb-1 text-truncate">{add.name}</h6>
+                                        <span className="text-dark fw-bold small">${add.price.toLocaleString('es-CO')}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="d-flex justify-content-end mt-4">
                             <button
                               type="button"
-                              className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
+                              className="btn btn-dark rounded-pill px-4 py-3 fw-bold text-uppercase shadow fs-7"
                               onClick={() => changeCheckoutStep(2)}
                             >
-                              CONTINUAR ›
+                              NO QUIERO AGREGAR MÁS PRODUCTOS Y CONTINUAR PAGO ›
                             </button>
                           </div>
                         </div>
                       )}
 
-                      {/* PASO 2 */}
+                      {/* PASO 2: REMITENTE */}
                       {checkoutStep === 2 && (
                         <div>
                           <h4 className="fw-bold text-dark mb-4 text-uppercase">DATOS DEL REMITENTE</h4>
@@ -511,7 +594,7 @@ export function CartOffcanvas() {
                         </div>
                       )}
 
-                      {/* PASO 3 */}
+                      {/* PASO 3: DESTINATARIO */}
                       {checkoutStep === 3 && (
                         <div>
                           <h4 className="fw-bold text-dark mb-4 text-uppercase">DATOS DEL DESTINATARIO</h4>
@@ -588,7 +671,7 @@ export function CartOffcanvas() {
                         </div>
                       )}
 
-                      {/* PASO 4 */}
+                      {/* PASO 4: PAGO */}
                       {checkoutStep === 4 && (
                         <div>
                           <h4 className="fw-bold text-dark mb-4 text-uppercase">SELECCIONA EL MÉTODO DE PAGO</h4>
@@ -665,26 +748,27 @@ export function CartOffcanvas() {
                     </div>
                   </div>
 
-                  {/* RESUMEN LATERAL */}
+                  {/* RESUMEN LATERAL CON ÍTEMS ENUMERADOS (1, 2, 3...) */}
                   <div className="col-lg-4">
                     <div className="bg-white p-4 rounded-4 border shadow-sm sticky-top" style={{ top: '20px' }}>
                       <div className="d-flex flex-column gap-3 mb-4 max-h-60 overflow-auto">
-                        {cart.map((item) => (
+                        {cart.map((item, idx) => (
                           <div key={item.id} className="d-flex align-items-center justify-content-between pb-2 border-bottom">
                             <div className="d-flex align-items-center gap-3">
+                              <span className="badge bg-dark rounded-circle p-2 fs-7">{idx + 1}</span>
                               <div className="position-relative">
                                 <img
                                   src={item.image}
                                   alt={item.name}
                                   className="rounded-3"
-                                  style={{ width: '56px', height: '56px', objectFit: 'cover' }}
+                                  style={{ width: '50px', height: '50px', objectFit: 'cover' }}
                                 />
                                 <span className="position-absolute top-0 start-100 translate-middle badge rounded-circle bg-secondary">
                                   {item.quantity}
                                 </span>
                               </div>
                               <div>
-                                <span className="fw-bold text-dark d-block text-truncate" style={{ maxWidth: '150px' }}>
+                                <span className="fw-bold text-dark d-block text-truncate" style={{ maxWidth: '120px' }}>
                                   {item.name}
                                 </span>
                               </div>
