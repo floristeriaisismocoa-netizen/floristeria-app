@@ -14,7 +14,6 @@ export function CartOffcanvas() {
 
   const [products, setProducts] = useState([]);
   
-  // Función para normalizar ítems del carrito y evitar que vengan sin ID o Nombre
   const normalizeCart = (rawCart) => {
     if (!Array.isArray(rawCart)) return [];
     return rawCart.map((item, index) => ({
@@ -23,7 +22,8 @@ export function CartOffcanvas() {
       price: Number(item.price) || 0,
       quantity: Number(item.quantity) || 1,
       image: item.image || (item.images && item.images[0]) || 'https://via.placeholder.com/300?text=Sin+Imagen',
-      category: item.category || 'RAMOS'
+      category: item.category || 'RAMOS',
+      subCategory: item.subCategory || ''
     }));
   };
 
@@ -139,31 +139,16 @@ export function CartOffcanvas() {
 
   useEffect(() => {
     const unsubscribe = subscribeToProducts((data) => {
-      const mappedProducts = data.map((item) => {
-        const cat = (item.category || '').toUpperCase().trim();
-        const sub = (item.subCategory || '').toUpperCase().trim();
-
-        let finalCategory = cat;
-        if (cat === 'RAMOS') {
-          if (sub.includes('ETERNO')) {
-            finalCategory = 'RAMOS_ETERNOS';
-          } else if (sub.includes('FUNEBRE') || sub.includes('FÚNEBRE')) {
-            finalCategory = 'RAMOS_FUNEBRES';
-          } else {
-            finalCategory = 'RAMOS_NATURALES';
-          }
-        }
-
-        return {
-          id: item.id,
-          name: item.title || item.name || 'Arreglo Floral',
-          price: Number(item.price) || 0,
-          category: finalCategory,
-          image: item.images && item.images.length > 0 
-            ? item.images[0] 
-            : (item.image || 'https://via.placeholder.com/300?text=Sin+Imagen')
-        };
-      });
+      const mappedProducts = data.map((item) => ({
+        id: item.id,
+        name: item.title || item.name || 'Arreglo Floral',
+        price: Number(item.price) || 0,
+        category: (item.category || '').toUpperCase().trim(),
+        subCategory: (item.subCategory || '').toUpperCase().trim(),
+        image: item.images && item.images.length > 0 
+          ? item.images[0] 
+          : (item.image || 'https://via.placeholder.com/300?text=Sin+Imagen')
+      }));
       setProducts(mappedProducts);
     });
 
@@ -219,8 +204,20 @@ export function CartOffcanvas() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+  // Filtrado flexible considerando categoría y subcategoría de la BD
   const addonProducts = selectedAddonCategory
-    ? products.filter((p) => p.category.includes(selectedAddonCategory))
+    ? products.filter((p) => {
+        if (selectedAddonCategory === 'RAMOS_NATURALES') {
+          return p.category.includes('RAMO') && (p.subCategory.includes('NATURAL') || !p.subCategory);
+        }
+        if (selectedAddonCategory === 'RAMOS_ETERNOS') {
+          return p.category.includes('RAMO') && p.subCategory.includes('ETERNO');
+        }
+        if (selectedAddonCategory === 'RAMOS_FUNEBRES') {
+          return p.category.includes('RAMO') && (p.subCategory.includes('FUNEBRE') || p.subCategory.includes('FÚNEBRE'));
+        }
+        return p.category.includes(selectedAddonCategory);
+      })
     : [];
 
   const getNextOrderNumber = async () => {
@@ -408,7 +405,7 @@ export function CartOffcanvas() {
         </div>
       </div>
 
-      {/* MODAL CHECKOUT */}
+      {/* MODAL CHECKOUT MEJORADO ESTILO PÁGINA GRANDE */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"
@@ -416,12 +413,12 @@ export function CartOffcanvas() {
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.88)', zIndex: 1080 }}
           onClick={handleCloseCheckout}
         >
-          <div className="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-lg-down" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content bg-white text-dark rounded-4 border-0 shadow-lg overflow-hidden">
               
               <div className="modal-header bg-white border-bottom p-4 flex-column align-items-stretch">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <span className="text-secondary fw-semibold cursor-pointer" onClick={handleCloseCheckout} style={{ cursor: 'pointer' }}>
+                  <span className="text-secondary fw-semibold cursor-pointer fs-6" onClick={handleCloseCheckout} style={{ cursor: 'pointer' }}>
                     ← Volver
                   </span>
                   <button
@@ -453,10 +450,10 @@ export function CartOffcanvas() {
                 </div>
               </div>
 
-              <div className="modal-body p-4 p-md-5 bg-light">
-                <div className="row g-4 g-lg-5">
+              <div className="modal-body p-3 p-md-5 bg-light">
+                <div className="row g-4">
                   <div className="col-lg-8">
-                    <div className="bg-white p-4 p-md-5 rounded-4 border shadow-sm">
+                    <div className="bg-white p-4 p-md-5 rounded-4 border shadow-sm h-100">
 
                       {/* PASO 1: RECOMENDACIONES */}
                       {checkoutStep === 1 && (
@@ -469,7 +466,7 @@ export function CartOffcanvas() {
                               {addonCategories.map((cat) => (
                                 <div className="col" key={cat.id}>
                                   <div
-                                    className="card h-100 border p-3 text-center rounded-4 bg-light"
+                                    className="card h-100 border p-3 text-center rounded-4 bg-light hover-shadow"
                                     style={{ cursor: 'pointer', transition: 'all 0.2s' }}
                                     onClick={() => setSelectedAddonCategory(cat.id)}
                                   >
@@ -496,7 +493,7 @@ export function CartOffcanvas() {
                               </div>
 
                               {addonProducts.length === 0 ? (
-                                <p className="text-muted text-center py-4">No hay adicionales en esta categoría.</p>
+                                <p className="text-muted text-center py-4">No hay adicionales disponibles en esta categoría.</p>
                               ) : (
                                 <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
                                   {addonProducts.map((add) => (
@@ -797,42 +794,40 @@ export function CartOffcanvas() {
                     </div>
                   </div>
 
-                  {/* RESUMEN LATERAL DEL PEDIDO */}
+                  {/* RESUMEN LATERAL LIMPIO (SIN SCROLLBARS NI RECORTES) */}
                   <div className="col-lg-4">
                     <div className="bg-white p-4 rounded-4 border shadow-sm sticky-top" style={{ top: '20px' }}>
-                      <div className="d-flex flex-column gap-3 mb-4 max-h-60 overflow-auto">
+                      <h6 className="fw-bold text-dark text-uppercase mb-3 pb-2 border-bottom">Resumen del Pedido</h6>
+                      
+                      <div className="d-flex flex-column gap-3 mb-4" style={{ maxHeight: '350px', overflowY: 'auto', overflowX: 'hidden' }}>
                         {cart.map((item, idx) => (
-                          <div key={item.id} className="d-flex align-items-center justify-content-between pb-2 border-bottom">
-                            <div className="d-flex align-items-center gap-3">
+                          <div key={item.id} className="d-flex align-items-center justify-content-between pb-2 border-bottom w-100">
+                            <div className="d-flex align-items-center gap-2 overflow-hidden me-2">
                               <span 
-                                className="badge bg-dark rounded-circle d-flex align-items-center justify-content-center fw-bold fs-7"
-                                style={{ minWidth: '28px', height: '28px' }}
+                                className="badge bg-dark rounded-circle d-flex align-items-center justify-content-center fw-bold fs-8 flex-shrink-0"
+                                style={{ width: '24px', height: '24px' }}
                               >
                                 {idx + 1}
                               </span>
-                              <div className="position-relative">
-                                <img
-                                  src={item.image}
-                                  alt={item.name}
-                                  className="rounded-3"
-                                  style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                                />
-                                <span className="position-absolute top-0 start-100 translate-middle badge rounded-circle bg-secondary">
-                                  {item.quantity}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="fw-bold text-dark d-block text-truncate" style={{ maxWidth: '100px' }}>
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="rounded-3 flex-shrink-0"
+                                style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                              />
+                              <div className="text-truncate">
+                                <span className="fw-bold text-dark d-block text-truncate fs-7" style={{ maxWidth: '110px' }}>
                                   {item.name}
                                 </span>
-                                <small className="text-muted d-block">${item.price.toLocaleString('es-CO')}</small>
+                                <small className="text-muted d-block fs-8">{item.quantity} x ${item.price.toLocaleString('es-CO')}</small>
                               </div>
                             </div>
-                            <div className="d-flex align-items-center gap-2">
-                              <span className="fw-bold text-dark">${(item.price * item.quantity).toLocaleString('es-CO')}</span>
+
+                            <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                              <span className="fw-bold text-dark fs-7">${(item.price * item.quantity).toLocaleString('es-CO')}</span>
                               <button
                                 type="button"
-                                className="btn btn-sm btn-link text-danger p-0 text-decoration-none fw-bold fs-5 ms-1"
+                                className="btn btn-sm btn-link text-danger p-0 text-decoration-none fw-bold fs-6 ms-1"
                                 onClick={() => removeFromCart(item.id)}
                                 title="Quitar del pedido"
                               >
@@ -844,16 +839,16 @@ export function CartOffcanvas() {
                       </div>
 
                       <div className="pt-2">
-                        <div className="d-flex justify-content-between mb-2 text-secondary">
+                        <div className="d-flex justify-content-between mb-2 text-secondary fs-7">
                           <span>Subtotal</span>
                           <span className="fw-semibold text-dark">${cartTotal.toLocaleString('es-CO')}</span>
                         </div>
-                        <div className="d-flex justify-content-between mb-3 text-secondary">
+                        <div className="d-flex justify-content-between mb-3 text-secondary fs-7">
                           <span>Costo de envío</span>
                           <span>—</span>
                         </div>
                         <hr className="my-2" />
-                        <div className="d-flex justify-content-between fw-bold fs-4 text-dark mt-3">
+                        <div className="d-flex justify-content-between fw-bold fs-5 text-dark mt-3">
                           <span>TOTAL</span>
                           <span>${cartTotal.toLocaleString('es-CO')}</span>
                         </div>
