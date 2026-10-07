@@ -37,8 +37,8 @@ export function CartOffcanvas() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Estados para la navegación de categorías en Paso 1
-  const [selectedMainCategory, setSelectedMainCategory] = useState(null); // 'RAMOS', 'CHOCOLATES', etc.
-  const [selectedSubCategory, setSelectedSubCategory] = useState(null);   // 'NATURALES', 'ETERNOS', 'FUNEBRES'
+  const [selectedMainCategory, setSelectedMainCategory] = useState(null); 
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);   
 
   const [isCartAnimating, setIsCartAnimating] = useState(false);
 
@@ -61,7 +61,6 @@ export function CartOffcanvas() {
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
 
-  // Categorías Principales Limpias (Sin subcategorías expuestas afuera)
   const mainCategories = [
     { id: 'CHOCOLATES', label: 'CHOCOLATES', icon: '🍫', desc: 'Cajas de bombones y golosinas' },
     { id: 'GLOBOS', label: 'GLOBOS', icon: '🎈', desc: 'Decoraciones con helio' },
@@ -73,21 +72,24 @@ export function CartOffcanvas() {
     { id: 'ESPECIALES', label: 'ESPECIALES', icon: '✨', desc: 'Diseños únicos' }
   ];
 
-  // Subcategorías exclusivas para RAMOS
   const ramosSubcategories = [
     { id: 'NATURALES', label: 'RAMOS NATURALES', icon: '🌹', desc: 'Flores frescas' },
     { id: 'ETERNOS', label: 'RAMOS ETERNOS', icon: '✨', desc: 'Ramos preservados' },
     { id: 'FUNEBRES', label: 'RAMOS FÚNEBRES', icon: '🕊️', desc: 'Condolencias y homenajes' }
   ];
 
+  // MANEJO MEJORADO DE NAVEGACIÓN Y BOTÓN ATRÁS DEL CELULAR
   useEffect(() => {
     const handlePopState = (event) => {
-      if (showCheckoutModal) {
-        if (event.state && typeof event.state.checkoutStep === 'number') {
-          setCheckoutStep(event.state.checkoutStep);
-        } else {
-          setShowCheckoutModal(false);
-        }
+      if (!showCheckoutModal) return;
+
+      if (event.state && event.state.modalView) {
+        const { step, mainCat, subCat } = event.state.modalView;
+        setCheckoutStep(step || 1);
+        setSelectedMainCategory(mainCat || null);
+        setSelectedSubCategory(subCat || null);
+      } else {
+        setShowCheckoutModal(false);
       }
     };
 
@@ -95,9 +97,11 @@ export function CartOffcanvas() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [showCheckoutModal]);
 
-  const changeCheckoutStep = (newStep) => {
-    setCheckoutStep(newStep);
-    window.history.pushState({ checkoutStep: newStep }, '', '');
+  const pushModalState = (step, mainCat = null, subCat = null) => {
+    setCheckoutStep(step);
+    setSelectedMainCategory(mainCat);
+    setSelectedSubCategory(subCat);
+    window.history.pushState({ modalView: { step, mainCat, subCat } }, '', '');
   };
 
   const openOffcanvas = () => {
@@ -119,18 +123,19 @@ export function CartOffcanvas() {
         if (closeBtn) closeBtn.click();
       }
     }
-    setCheckoutStep(1);
-    setSelectedMainCategory(null);
-    setSelectedSubCategory(null);
     setShowCheckoutModal(true);
-    window.history.pushState({ checkoutStep: 1 }, '', '');
+    pushModalState(1, null, null);
   };
 
   const handleCloseCheckout = () => {
     setShowCheckoutModal(false);
-    if (window.history.state && typeof window.history.state.checkoutStep === 'number') {
+    if (window.history.state && window.history.state.modalView) {
       window.history.back();
     }
+  };
+
+  const handleBackNavigation = () => {
+    window.history.back();
   };
 
   const getAvailableDates = () => {
@@ -214,7 +219,6 @@ export function CartOffcanvas() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  // Lógica de filtrado dinámico
   const addonProducts = products.filter((p) => {
     if (!selectedMainCategory) return false;
 
@@ -317,6 +321,17 @@ export function CartOffcanvas() {
 
   return (
     <>
+      {/* Estilos CSS inline para ocultar las barras deslizantes feas pero mantener el scroll */}
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
       {/* ANIMACIÓN DEL CARRITO */}
       {isCartAnimating && (
         <div
@@ -355,7 +370,7 @@ export function CartOffcanvas() {
           ></button>
         </div>
 
-        <div className="offcanvas-body d-flex flex-column justify-content-between p-3">
+        <div className="offcanvas-body d-flex flex-column justify-content-between p-3 hide-scrollbar">
           {cart.length === 0 ? (
             <div className="text-center py-5 my-auto text-muted">
               <i className="bi bi-cart-x display-1 text-secondary d-block mb-3"></i>
@@ -364,7 +379,7 @@ export function CartOffcanvas() {
             </div>
           ) : (
             <>
-              <div className="d-flex flex-column gap-2 overflow-auto mb-3 pe-1">
+              <div className="d-flex flex-column gap-2 overflow-auto mb-3 pe-1 hide-scrollbar">
                 {cart.map((item, idx) => (
                   <div key={item.id} className="d-flex align-items-center justify-content-between bg-dark p-2 rounded-3 border border-secondary position-relative">
                     <span 
@@ -419,7 +434,7 @@ export function CartOffcanvas() {
         </div>
       </div>
 
-      {/* MODAL CHECKOUT MAXIMIZADO (ANCHO COMPLETO PARA APROVECHAR ESPACIO) */}
+      {/* MODAL CHECKOUT */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block p-0 p-md-2"
@@ -468,18 +483,17 @@ export function CartOffcanvas() {
                 </div>
               </div>
 
-              <div className="modal-body p-3 p-md-5 bg-light overflow-auto">
+              <div className="modal-body p-3 p-md-5 bg-light overflow-auto hide-scrollbar">
                 <div className="row g-4">
                   <div className="col-lg-8">
                     <div className="bg-white p-4 p-md-5 rounded-4 border shadow-sm h-100">
 
-                      {/* PASO 1: RECOMENDACIONES Y JERARQUÍA DE RAMOS */}
+                      {/* PASO 1: RECOMENDACIONES */}
                       {checkoutStep === 1 && (
                         <div>
                           <h3 className="fw-bold text-dark mb-1">¿Deseas complementar tu compra con algo más?</h3>
                           <p className="text-muted small mb-4">Elige una categoría para desplegar sus adiciones:</p>
 
-                          {/* NIVEL 1: CATEGORÍAS PRINCIPALES */}
                           {!selectedMainCategory ? (
                             <div className="row row-cols-2 row-cols-md-4 g-3 mb-4">
                               {mainCategories.map((cat) => (
@@ -487,7 +501,7 @@ export function CartOffcanvas() {
                                   <div
                                     className="card h-100 border p-3 text-center rounded-4 bg-light shadow-sm"
                                     style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-                                    onClick={() => setSelectedMainCategory(cat.id)}
+                                    onClick={() => pushModalState(1, cat.id, null)}
                                   >
                                     <div className="fs-1 mb-1">{cat.icon}</div>
                                     <h6 className="fw-bold text-dark text-uppercase mb-1 fs-7">{cat.label}</h6>
@@ -497,15 +511,14 @@ export function CartOffcanvas() {
                               ))}
                             </div>
                           ) : selectedMainCategory === 'RAMOS' && !selectedSubCategory ? (
-                            /* NIVEL 2: SUBCATEGORÍAS EXCLUSIVAS DE RAMOS */
                             <div className="mb-4">
                               <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                                 <button
                                   type="button"
                                   className="btn btn-outline-dark btn-sm rounded-pill fw-bold"
-                                  onClick={() => setSelectedMainCategory(null)}
+                                  onClick={handleBackNavigation}
                                 >
-                                  ← Ver todas las categorías
+                                  ← Volver
                                 </button>
                                 <span className="fw-bold text-success text-uppercase">
                                   SELECCIONA TIPO DE RAMO
@@ -518,7 +531,7 @@ export function CartOffcanvas() {
                                     <div
                                       className="card h-100 border p-4 text-center rounded-4 bg-light shadow-sm"
                                       style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-                                      onClick={() => setSelectedSubCategory(sub.id)}
+                                      onClick={() => pushModalState(1, 'RAMOS', sub.id)}
                                     >
                                       <div className="fs-1 mb-2">{sub.icon}</div>
                                       <h6 className="fw-bold text-dark text-uppercase mb-1">{sub.label}</h6>
@@ -529,19 +542,12 @@ export function CartOffcanvas() {
                               </div>
                             </div>
                           ) : (
-                            /* NIVEL 3: MOSTRAR PRODUCTOS FILTRADOS */
                             <div className="mb-4">
                               <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                                 <button
                                   type="button"
                                   className="btn btn-outline-dark btn-sm rounded-pill fw-bold"
-                                  onClick={() => {
-                                    if (selectedMainCategory === 'RAMOS') {
-                                      setSelectedSubCategory(null);
-                                    } else {
-                                      setSelectedMainCategory(null);
-                                    }
-                                  }}
+                                  onClick={handleBackNavigation}
                                 >
                                   ← Volver
                                 </button>
@@ -586,7 +592,7 @@ export function CartOffcanvas() {
                             <button
                               type="button"
                               className="btn btn-dark rounded-pill px-4 py-3 fw-bold text-uppercase shadow fs-7"
-                              onClick={() => changeCheckoutStep(2)}
+                              onClick={() => pushModalState(2, selectedMainCategory, selectedSubCategory)}
                             >
                               NO QUIERO AGREGAR MÁS PRODUCTOS Y CONTINUAR PAGO ›
                             </button>
@@ -683,14 +689,14 @@ export function CartOffcanvas() {
                             <button
                               type="button"
                               className="btn btn-outline-secondary rounded-pill px-4 py-2"
-                              onClick={() => changeCheckoutStep(1)}
+                              onClick={handleBackNavigation}
                             >
                               Volver
                             </button>
                             <button
                               type="button"
                               className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
-                              onClick={() => changeCheckoutStep(3)}
+                              onClick={() => pushModalState(3, selectedMainCategory, selectedSubCategory)}
                             >
                               CONTINUAR ›
                             </button>
@@ -760,14 +766,14 @@ export function CartOffcanvas() {
                             <button
                               type="button"
                               className="btn btn-outline-secondary rounded-pill px-4 py-2"
-                              onClick={() => changeCheckoutStep(2)}
+                              onClick={handleBackNavigation}
                             >
                               Corregir información
                             </button>
                             <button
                               type="button"
                               className="btn btn-dark rounded-pill px-5 py-3 fw-bold text-uppercase shadow"
-                              onClick={() => changeCheckoutStep(4)}
+                              onClick={() => pushModalState(4, selectedMainCategory, selectedSubCategory)}
                             >
                               CONTINUAR ›
                             </button>
@@ -833,7 +839,7 @@ export function CartOffcanvas() {
                             <button
                               type="button"
                               className="btn btn-outline-secondary rounded-pill px-4 py-2"
-                              onClick={() => changeCheckoutStep(3)}
+                              onClick={handleBackNavigation}
                             >
                               Corregir información
                             </button>
@@ -852,12 +858,12 @@ export function CartOffcanvas() {
                     </div>
                   </div>
 
-                  {/* RESUMEN LATERAL DEL PEDIDO */}
+                  {/* RESUMEN LATERAL DEL PEDIDO SIN SCROLLBARS VISIBLES */}
                   <div className="col-lg-4">
                     <div className="bg-white p-4 rounded-4 border shadow-sm sticky-top" style={{ top: '20px' }}>
                       <h6 className="fw-bold text-dark text-uppercase mb-3 pb-2 border-bottom">Resumen del Pedido</h6>
                       
-                      <div className="d-flex flex-column gap-3 mb-4" style={{ maxHeight: '380px', overflowY: 'auto', overflowX: 'hidden' }}>
+                      <div className="d-flex flex-column gap-3 mb-4 hide-scrollbar" style={{ maxHeight: '380px', overflowY: 'auto' }}>
                         {cart.map((item, idx) => (
                           <div key={item.id} className="d-flex align-items-center justify-content-between pb-2 border-bottom w-100">
                             <div className="d-flex align-items-center gap-2 overflow-hidden me-2">
