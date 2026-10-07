@@ -6,6 +6,7 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
+  getDocs,
   onSnapshot, 
   serverTimestamp 
 } from 'firebase/firestore';
@@ -25,8 +26,19 @@ export const subscribeToProducts = (callback) => {
   });
 };
 
+// Obtener lista completa de productos (Promise para la vista Admin)
+export const getProducts = async () => {
+  const productsRef = collection(db, PRODUCTS_COLLECTION);
+  const snapshot = await getDocs(productsRef);
+  return snapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data()
+  }));
+};
+
 // Subir una lista de archivos de imagen a Firebase Storage
 export const uploadProductImages = async (files) => {
+  if (!files || files.length === 0) return [];
   const uploadPromises = Array.from(files).map(async (file) => {
     const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
     await uploadBytes(storageRef, file);
@@ -42,29 +54,38 @@ export const createProduct = async (productData, imageFiles) => {
     imageUrls = await uploadProductImages(imageFiles);
   }
 
+  const finalImages = [...(productData.existingImages || []), ...imageUrls];
+
+  const payload = { ...productData };
+  delete payload.existingImages;
+
   return await addDoc(collection(db, PRODUCTS_COLLECTION), {
-    ...productData,
+    ...payload,
     price: Number(productData.price),
-    images: imageUrls,
+    images: finalImages,
     createdAt: serverTimestamp()
   });
 };
 
-// Alias para mantener compatibilidad con AdminProductsView
+// Alias para compatibilidad con AdminProductsView
 export const addProduct = createProduct;
 
 // Actualizar producto
-export const updateProduct = async (id, productData, newImageFiles, existingImages = []) => {
+export const updateProduct = async (id, productData, newImageFiles = []) => {
   let newUrls = [];
   if (newImageFiles && newImageFiles.length > 0) {
     newUrls = await uploadProductImages(newImageFiles);
   }
 
-  const finalImages = [...existingImages, ...newUrls];
+  const existing = productData.existingImages || [];
+  const finalImages = [...existing, ...newUrls];
+
+  const payload = { ...productData };
+  delete payload.existingImages;
 
   const productRef = doc(db, PRODUCTS_COLLECTION, id);
   return await updateDoc(productRef, {
-    ...productData,
+    ...payload,
     price: Number(productData.price),
     images: finalImages,
     updatedAt: serverTimestamp()
@@ -82,7 +103,7 @@ export const createOrder = async (cartItems, total) => {
   return await addDoc(collection(db, 'orders'), {
     items: cartItems,
     total: total,
-    status: 'en_taller',
+    status: 'EN_PREPARACION',
     createdAt: serverTimestamp()
   });
 };
