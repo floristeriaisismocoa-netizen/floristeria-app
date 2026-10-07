@@ -46,14 +46,16 @@ export function CartOffcanvas() {
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
 
-  // Menú de recomendados en el ORDEN SOLICITADO
+  // Menú de recomendados con la división de Ramos
   const addonCategories = [
     { id: 'CHOCOLATES', label: 'CHOCOLATES', icon: '🍫', desc: 'Cajas de bombones y golosinas' },
     { id: 'GLOBOS', label: 'GLOBOS', icon: '🎈', desc: 'Decoraciones con helio' },
     { id: 'CORONAS', label: 'CORONAS', icon: '👑', desc: 'Tiaras y coronas finas' },
     { id: 'MARIPOSAS', label: 'MARIPOSAS', icon: '🦋', desc: 'Detalles brillantes' },
     { id: 'PELUCHES', label: 'PELUCHES', icon: '🧸', desc: 'Muñecos afelpados' },
-    { id: 'RAMOS', label: 'RAMOS', icon: '🌹', desc: 'Variedades florales' },
+    { id: 'RAMOS_NATURALES', label: 'RAMOS NATURALES', icon: '🌹', desc: 'Flores frescas' },
+    { id: 'RAMOS_ETERNOS', label: 'RAMOS ETERNOS', icon: '✨', desc: 'Ramos preservados' },
+    { id: 'RAMOS_FUNEBRES', label: 'RAMOS FÚNEBRES', icon: '🕊️', desc: 'Condolencias y homenajes' },
     { id: 'DESAYUNOS', label: 'DESAYUNOS', icon: '🍳', desc: 'Sorpresas matutinas' },
     { id: 'ESPECIALES', label: 'ESPECIALES', icon: '✨', desc: 'Diseños únicos' }
   ];
@@ -122,7 +124,7 @@ export function CartOffcanvas() {
         id: item.id,
         name: item.title || item.name || 'Arreglo Floral',
         price: Number(item.price) || 0,
-        category: (item.category || 'RAMOS').toUpperCase(),
+        category: (item.category || 'RAMOS_NATURALES').toUpperCase(),
         image: item.images && item.images.length > 0 
           ? item.images[0] 
           : (item.image || 'https://via.placeholder.com/300?text=Sin+Imagen')
@@ -153,7 +155,6 @@ export function CartOffcanvas() {
     window.dispatchEvent(new Event('cartUpdated'));
   };
 
-  // Función para agregar producto con animación de carrito de 5 segundos
   const handleAddAddonWithAnimation = (product) => {
     setIsCartAnimating(true);
 
@@ -178,7 +179,6 @@ export function CartOffcanvas() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  // Productos filtrados según el menú seleccionado en recomendados
   const addonProducts = selectedAddonCategory
     ? products.filter((p) => p.category.includes(selectedAddonCategory))
     : [];
@@ -266,7 +266,7 @@ export function CartOffcanvas() {
 
   return (
     <>
-      {/* ANIMACIÓN DEL CARRITO VOLADOR (5 SEGUNDOS) */}
+      {/* ANIMACIÓN DEL CARRITO VOLADOR */}
       {isCartAnimating && (
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
@@ -316,7 +316,12 @@ export function CartOffcanvas() {
               <div className="d-flex flex-column gap-2 overflow-auto mb-3 pe-1">
                 {cart.map((item, idx) => (
                   <div key={item.id} className="d-flex align-items-center justify-content-between bg-dark p-2 rounded-3 border border-secondary position-relative">
-                    <span className="badge bg-success rounded-circle me-1">{idx + 1}</span>
+                    <span 
+                      className="badge bg-success rounded-circle d-flex align-items-center justify-content-center me-2 flex-shrink-0"
+                      style={{ width: '28px', height: '28px' }}
+                    >
+                      {idx + 1}
+                    </span>
                     <div className="d-flex align-items-center gap-2 flex-grow-1">
                       <img
                         src={item.image}
@@ -335,6 +340,7 @@ export function CartOffcanvas() {
                       type="button"
                       className="btn btn-sm btn-link text-danger p-1 text-decoration-none fw-bold fs-5"
                       onClick={() => removeFromCart(item.id)}
+                      title="Quitar producto"
                     >
                       ✕
                     </button>
@@ -362,7 +368,7 @@ export function CartOffcanvas() {
         </div>
       </div>
 
-      {/* MODAL CHECKOUT REESTRUCTURADO */}
+      {/* MODAL CHECKOUT */}
       {showCheckoutModal && (
         <div
           className="modal fade show d-block"
@@ -375,7 +381,7 @@ export function CartOffcanvas() {
               
               <div className="modal-header bg-white border-bottom p-4 flex-column align-items-stretch">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <span className="text-secondary fw-semibold cursor-pointer" onClick={handleCloseCheckout}>
+                  <span className="text-secondary fw-semibold cursor-pointer" onClick={handleCloseCheckout} style={{ cursor: 'pointer' }}>
                     ← Volver
                   </span>
                   <button
@@ -393,7 +399,10 @@ export function CartOffcanvas() {
                     { num: 4, label: 'REALIZAR PAGO' }
                   ].map((st) => (
                     <div key={st.num} className="d-flex align-items-center gap-2">
-                      <span className={`badge rounded-circle p-2 fs-6 ${checkoutStep === st.num ? 'bg-dark text-white' : 'bg-light text-muted border'}`}>
+                      <span 
+                        className={`badge rounded-circle d-flex align-items-center justify-content-center fw-bold fs-6 ${checkoutStep === st.num ? 'bg-dark text-white' : 'bg-light text-muted border'}`}
+                        style={{ minWidth: '32px', height: '32px' }}
+                      >
                         {st.num}
                       </span>
                       <small className={`fw-bold text-uppercase d-none d-md-inline ${checkoutStep === st.num ? 'text-dark' : 'text-muted'}`}>
@@ -409,7 +418,7 @@ export function CartOffcanvas() {
                   <div className="col-lg-8">
                     <div className="bg-white p-4 p-md-5 rounded-4 border shadow-sm">
 
-                      {/* PASO 1: NUEVO MENÚ DE SERVICIOS ADICIONALES */}
+                      {/* PASO 1: RECOMENDACIONES */}
                       {checkoutStep === 1 && (
                         <div>
                           <h3 className="fw-bold text-dark mb-1">¿Deseas complementar tu compra con algo más?</h3>
@@ -420,7 +429,7 @@ export function CartOffcanvas() {
                               {addonCategories.map((cat) => (
                                 <div className="col" key={cat.id}>
                                   <div
-                                    className="card h-100 border p-3 text-center rounded-4 cursor-pointer hover-shadow bg-light"
+                                    className="card h-100 border p-3 text-center rounded-4 bg-light"
                                     style={{ cursor: 'pointer', transition: 'all 0.2s' }}
                                     onClick={() => setSelectedAddonCategory(cat.id)}
                                   >
@@ -442,7 +451,7 @@ export function CartOffcanvas() {
                                   ← Ver todas las categorías
                                 </button>
                                 <span className="fw-bold text-success text-uppercase">
-                                  Categoría: {selectedAddonCategory}
+                                  Categoría: {selectedAddonCategory.replace('_', ' ')}
                                 </span>
                               </div>
 
@@ -452,24 +461,24 @@ export function CartOffcanvas() {
                                 <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
                                   {addonProducts.map((add) => (
                                     <div className="col" key={add.id}>
-                                      <div className="card h-100 border-0 bg-light p-3 position-relative rounded-4 text-center">
+                                      <div className="card h-100 border-0 bg-light p-3 rounded-4 text-center d-flex flex-column justify-content-between">
+                                        <div>
+                                          <img
+                                            src={add.image}
+                                            alt={add.name}
+                                            className="rounded-3 mb-2 mx-auto"
+                                            style={{ height: '110px', objectFit: 'contain', width: '100%' }}
+                                          />
+                                          <h6 className="fw-bold text-dark fs-7 mb-1 text-truncate">{add.name}</h6>
+                                          <div className="text-dark fw-bold small mb-2">${add.price.toLocaleString('es-CO')}</div>
+                                        </div>
                                         <button
                                           type="button"
-                                          className="btn btn-success text-white shadow-sm position-absolute top-0 end-0 m-2 rounded-circle fw-bold fs-5 border-0"
-                                          style={{ width: '36px', height: '36px', lineHeight: 1 }}
+                                          className="btn btn-success btn-sm text-white shadow-sm rounded-3 fw-bold w-100 text-uppercase py-2"
                                           onClick={() => handleAddAddonWithAnimation(add)}
-                                          title="Agregar adicional"
                                         >
-                                          +
+                                          AGREGAR
                                         </button>
-                                        <img
-                                          src={add.image}
-                                          alt={add.name}
-                                          className="rounded-3 mb-2 mx-auto"
-                                          style={{ height: '110px', objectFit: 'contain', width: '100%' }}
-                                        />
-                                        <h6 className="fw-bold text-dark fs-7 mb-1 text-truncate">{add.name}</h6>
-                                        <span className="text-dark fw-bold small">${add.price.toLocaleString('es-CO')}</span>
                                       </div>
                                     </div>
                                   ))}
@@ -748,14 +757,19 @@ export function CartOffcanvas() {
                     </div>
                   </div>
 
-                  {/* RESUMEN LATERAL CON ÍTEMS ENUMERADOS (1, 2, 3...) */}
+                  {/* RESUMEN LATERAL DEL PEDIDO */}
                   <div className="col-lg-4">
                     <div className="bg-white p-4 rounded-4 border shadow-sm sticky-top" style={{ top: '20px' }}>
                       <div className="d-flex flex-column gap-3 mb-4 max-h-60 overflow-auto">
                         {cart.map((item, idx) => (
                           <div key={item.id} className="d-flex align-items-center justify-content-between pb-2 border-bottom">
                             <div className="d-flex align-items-center gap-3">
-                              <span className="badge bg-dark rounded-circle p-2 fs-7">{idx + 1}</span>
+                              <span 
+                                className="badge bg-dark rounded-circle d-flex align-items-center justify-content-center fw-bold fs-7"
+                                style={{ minWidth: '28px', height: '28px' }}
+                              >
+                                {idx + 1}
+                              </span>
                               <div className="position-relative">
                                 <img
                                   src={item.image}
@@ -768,12 +782,23 @@ export function CartOffcanvas() {
                                 </span>
                               </div>
                               <div>
-                                <span className="fw-bold text-dark d-block text-truncate" style={{ maxWidth: '120px' }}>
+                                <span className="fw-bold text-dark d-block text-truncate" style={{ maxWidth: '100px' }}>
                                   {item.name}
                                 </span>
+                                <small className="text-muted d-block">${item.price.toLocaleString('es-CO')}</small>
                               </div>
                             </div>
-                            <span className="fw-bold text-dark">${(item.price * item.quantity).toLocaleString('es-CO')}</span>
+                            <div className="d-flex align-items-center gap-2">
+                              <span className="fw-bold text-dark">${(item.price * item.quantity).toLocaleString('es-CO')}</span>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-link text-danger p-0 text-decoration-none fw-bold fs-5 ms-1"
+                                onClick={() => removeFromCart(item.id)}
+                                title="Quitar del pedido"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
