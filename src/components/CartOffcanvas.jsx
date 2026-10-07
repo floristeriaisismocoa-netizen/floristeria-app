@@ -36,7 +36,10 @@ export function CartOffcanvas() {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const [selectedAddonCategory, setSelectedAddonCategory] = useState(null);
+  // Estados para la navegación de categorías en Paso 1
+  const [selectedMainCategory, setSelectedMainCategory] = useState(null); // 'RAMOS', 'CHOCOLATES', etc.
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);   // 'NATURALES', 'ETERNOS', 'FUNEBRES'
+
   const [isCartAnimating, setIsCartAnimating] = useState(false);
 
   // Form states - REMITENTE
@@ -58,17 +61,23 @@ export function CartOffcanvas() {
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
 
-  const addonCategories = [
+  // Categorías Principales Limpias (Sin subcategorías expuestas afuera)
+  const mainCategories = [
     { id: 'CHOCOLATES', label: 'CHOCOLATES', icon: '🍫', desc: 'Cajas de bombones y golosinas' },
     { id: 'GLOBOS', label: 'GLOBOS', icon: '🎈', desc: 'Decoraciones con helio' },
     { id: 'CORONAS', label: 'CORONAS', icon: '👑', desc: 'Tiaras y coronas finas' },
     { id: 'MARIPOSAS', label: 'MARIPOSAS', icon: '🦋', desc: 'Detalles brillantes' },
     { id: 'PELUCHES', label: 'PELUCHES', icon: '🧸', desc: 'Muñecos afelpados' },
-    { id: 'RAMOS_NATURALES', label: 'RAMOS NATURALES', icon: '🌹', desc: 'Flores frescas' },
-    { id: 'RAMOS_ETERNOS', label: 'RAMOS ETERNOS', icon: '✨', desc: 'Ramos preservados' },
-    { id: 'RAMOS_FUNEBRES', label: 'RAMOS FÚNEBRES', icon: '🕊️', desc: 'Condolencias y homenajes' },
+    { id: 'RAMOS', label: 'RAMOS', icon: '🌹', desc: 'Variedades de arreglos florales' },
     { id: 'DESAYUNOS', label: 'DESAYUNOS', icon: '🍳', desc: 'Sorpresas matutinas' },
     { id: 'ESPECIALES', label: 'ESPECIALES', icon: '✨', desc: 'Diseños únicos' }
+  ];
+
+  // Subcategorías exclusivas para RAMOS
+  const ramosSubcategories = [
+    { id: 'NATURALES', label: 'RAMOS NATURALES', icon: '🌹', desc: 'Flores frescas' },
+    { id: 'ETERNOS', label: 'RAMOS ETERNOS', icon: '✨', desc: 'Ramos preservados' },
+    { id: 'FUNEBRES', label: 'RAMOS FÚNEBRES', icon: '🕊️', desc: 'Condolencias y homenajes' }
   ];
 
   useEffect(() => {
@@ -111,7 +120,8 @@ export function CartOffcanvas() {
       }
     }
     setCheckoutStep(1);
-    setSelectedAddonCategory(null);
+    setSelectedMainCategory(null);
+    setSelectedSubCategory(null);
     setShowCheckoutModal(true);
     window.history.pushState({ checkoutStep: 1 }, '', '');
   };
@@ -194,7 +204,7 @@ export function CartOffcanvas() {
         updated = [...cart, { ...product, quantity: 1 }];
       }
       updateCart(updated, false);
-    }, 1500);
+    }, 1200);
   };
 
   const removeFromCart = (productId) => {
@@ -204,21 +214,25 @@ export function CartOffcanvas() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  // Filtrado flexible considerando categoría y subcategoría de la BD
-  const addonProducts = selectedAddonCategory
-    ? products.filter((p) => {
-        if (selectedAddonCategory === 'RAMOS_NATURALES') {
-          return p.category.includes('RAMO') && (p.subCategory.includes('NATURAL') || !p.subCategory);
-        }
-        if (selectedAddonCategory === 'RAMOS_ETERNOS') {
-          return p.category.includes('RAMO') && p.subCategory.includes('ETERNO');
-        }
-        if (selectedAddonCategory === 'RAMOS_FUNEBRES') {
-          return p.category.includes('RAMO') && (p.subCategory.includes('FUNEBRE') || p.subCategory.includes('FÚNEBRE'));
-        }
-        return p.category.includes(selectedAddonCategory);
-      })
-    : [];
+  // Lógica de filtrado dinámico
+  const addonProducts = products.filter((p) => {
+    if (!selectedMainCategory) return false;
+
+    if (selectedMainCategory === 'RAMOS') {
+      if (!selectedSubCategory) return false;
+      if (selectedSubCategory === 'NATURALES') {
+        return p.category.includes('RAMO') && (p.subCategory.includes('NATURAL') || !p.subCategory);
+      }
+      if (selectedSubCategory === 'ETERNOS') {
+        return p.category.includes('RAMO') && p.subCategory.includes('ETERNO');
+      }
+      if (selectedSubCategory === 'FUNEBRES') {
+        return p.category.includes('RAMO') && (p.subCategory.includes('FUNEBRE') || p.subCategory.includes('FÚNEBRE'));
+      }
+    }
+
+    return p.category.includes(selectedMainCategory);
+  });
 
   const getNextOrderNumber = async () => {
     try {
@@ -405,16 +419,20 @@ export function CartOffcanvas() {
         </div>
       </div>
 
-      {/* MODAL CHECKOUT MEJORADO ESTILO PÁGINA GRANDE */}
+      {/* MODAL CHECKOUT MAXIMIZADO (ANCHO COMPLETO PARA APROVECHAR ESPACIO) */}
       {showCheckoutModal && (
         <div
-          className="modal fade show d-block"
+          className="modal fade show d-block p-0 p-md-2"
           tabIndex="-1"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.88)', zIndex: 1080 }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.90)', zIndex: 1080 }}
           onClick={handleCloseCheckout}
         >
-          <div className="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-lg-down" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content bg-white text-dark rounded-4 border-0 shadow-lg overflow-hidden">
+          <div 
+            className="modal-dialog modal-dialog-centered modal-fullscreen"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '98vw', margin: '1vw auto' }}
+          >
+            <div className="modal-content bg-white text-dark rounded-4 border-0 shadow-lg overflow-hidden" style={{ minHeight: '92vh' }}>
               
               <div className="modal-header bg-white border-bottom p-4 flex-column align-items-stretch">
                 <div className="d-flex justify-content-between align-items-center mb-3">
@@ -450,25 +468,26 @@ export function CartOffcanvas() {
                 </div>
               </div>
 
-              <div className="modal-body p-3 p-md-5 bg-light">
+              <div className="modal-body p-3 p-md-5 bg-light overflow-auto">
                 <div className="row g-4">
                   <div className="col-lg-8">
                     <div className="bg-white p-4 p-md-5 rounded-4 border shadow-sm h-100">
 
-                      {/* PASO 1: RECOMENDACIONES */}
+                      {/* PASO 1: RECOMENDACIONES Y JERARQUÍA DE RAMOS */}
                       {checkoutStep === 1 && (
                         <div>
                           <h3 className="fw-bold text-dark mb-1">¿Deseas complementar tu compra con algo más?</h3>
                           <p className="text-muted small mb-4">Elige una categoría para desplegar sus adiciones:</p>
 
-                          {!selectedAddonCategory ? (
+                          {/* NIVEL 1: CATEGORÍAS PRINCIPALES */}
+                          {!selectedMainCategory ? (
                             <div className="row row-cols-2 row-cols-md-4 g-3 mb-4">
-                              {addonCategories.map((cat) => (
+                              {mainCategories.map((cat) => (
                                 <div className="col" key={cat.id}>
                                   <div
-                                    className="card h-100 border p-3 text-center rounded-4 bg-light hover-shadow"
+                                    className="card h-100 border p-3 text-center rounded-4 bg-light shadow-sm"
                                     style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-                                    onClick={() => setSelectedAddonCategory(cat.id)}
+                                    onClick={() => setSelectedMainCategory(cat.id)}
                                   >
                                     <div className="fs-1 mb-1">{cat.icon}</div>
                                     <h6 className="fw-bold text-dark text-uppercase mb-1 fs-7">{cat.label}</h6>
@@ -477,18 +496,57 @@ export function CartOffcanvas() {
                                 </div>
                               ))}
                             </div>
-                          ) : (
+                          ) : selectedMainCategory === 'RAMOS' && !selectedSubCategory ? (
+                            /* NIVEL 2: SUBCATEGORÍAS EXCLUSIVAS DE RAMOS */
                             <div className="mb-4">
                               <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                                 <button
                                   type="button"
                                   className="btn btn-outline-dark btn-sm rounded-pill fw-bold"
-                                  onClick={() => setSelectedAddonCategory(null)}
+                                  onClick={() => setSelectedMainCategory(null)}
                                 >
                                   ← Ver todas las categorías
                                 </button>
                                 <span className="fw-bold text-success text-uppercase">
-                                  Categoría: {selectedAddonCategory.replace('_', ' ')}
+                                  SELECCIONA TIPO DE RAMO
+                                </span>
+                              </div>
+
+                              <div className="row row-cols-1 row-cols-md-3 g-3">
+                                {ramosSubcategories.map((sub) => (
+                                  <div className="col" key={sub.id}>
+                                    <div
+                                      className="card h-100 border p-4 text-center rounded-4 bg-light shadow-sm"
+                                      style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                                      onClick={() => setSelectedSubCategory(sub.id)}
+                                    >
+                                      <div className="fs-1 mb-2">{sub.icon}</div>
+                                      <h6 className="fw-bold text-dark text-uppercase mb-1">{sub.label}</h6>
+                                      <small className="text-muted fs-8">{sub.desc}</small>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            /* NIVEL 3: MOSTRAR PRODUCTOS FILTRADOS */
+                            <div className="mb-4">
+                              <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-dark btn-sm rounded-pill fw-bold"
+                                  onClick={() => {
+                                    if (selectedMainCategory === 'RAMOS') {
+                                      setSelectedSubCategory(null);
+                                    } else {
+                                      setSelectedMainCategory(null);
+                                    }
+                                  }}
+                                >
+                                  ← Volver
+                                </button>
+                                <span className="fw-bold text-success text-uppercase">
+                                  Categoría: {selectedMainCategory === 'RAMOS' ? `RAMOS ${selectedSubCategory}` : selectedMainCategory}
                                 </span>
                               </div>
 
@@ -504,7 +562,7 @@ export function CartOffcanvas() {
                                             src={add.image}
                                             alt={add.name}
                                             className="rounded-3 mb-2 mx-auto"
-                                            style={{ height: '110px', objectFit: 'contain', width: '100%' }}
+                                            style={{ height: '120px', objectFit: 'contain', width: '100%' }}
                                           />
                                           <h6 className="fw-bold text-dark fs-7 mb-1 text-truncate">{add.name}</h6>
                                           <div className="text-dark fw-bold small mb-2">${add.price.toLocaleString('es-CO')}</div>
@@ -794,12 +852,12 @@ export function CartOffcanvas() {
                     </div>
                   </div>
 
-                  {/* RESUMEN LATERAL LIMPIO (SIN SCROLLBARS NI RECORTES) */}
+                  {/* RESUMEN LATERAL DEL PEDIDO */}
                   <div className="col-lg-4">
                     <div className="bg-white p-4 rounded-4 border shadow-sm sticky-top" style={{ top: '20px' }}>
                       <h6 className="fw-bold text-dark text-uppercase mb-3 pb-2 border-bottom">Resumen del Pedido</h6>
                       
-                      <div className="d-flex flex-column gap-3 mb-4" style={{ maxHeight: '350px', overflowY: 'auto', overflowX: 'hidden' }}>
+                      <div className="d-flex flex-column gap-3 mb-4" style={{ maxHeight: '380px', overflowY: 'auto', overflowX: 'hidden' }}>
                         {cart.map((item, idx) => (
                           <div key={item.id} className="d-flex align-items-center justify-content-between pb-2 border-bottom w-100">
                             <div className="d-flex align-items-center gap-2 overflow-hidden me-2">
