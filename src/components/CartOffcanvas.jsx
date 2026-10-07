@@ -78,7 +78,6 @@ export function CartOffcanvas() {
     { id: 'FUNEBRES', label: 'RAMOS FÚNEBRES', icon: '🕊️', desc: 'Condolencias y homenajes' }
   ];
 
-  // MANEJO MEJORADO DE NAVEGACIÓN Y BOTÓN ATRÁS DEL CELULAR
   useEffect(() => {
     const handlePopState = (event) => {
       if (!showCheckoutModal) return;
@@ -136,6 +135,11 @@ export function CartOffcanvas() {
 
   const handleBackNavigation = () => {
     window.history.back();
+  };
+
+  const handleGoToProductDetail = (productId) => {
+    setShowCheckoutModal(false);
+    navigate(`/producto/${productId}`);
   };
 
   const getAvailableDates = () => {
@@ -321,7 +325,6 @@ export function CartOffcanvas() {
 
   return (
     <>
-      {/* Estilos CSS inline para ocultar las barras deslizantes feas pero mantener el scroll */}
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -563,16 +566,23 @@ export function CartOffcanvas() {
                                   {addonProducts.map((add) => (
                                     <div className="col" key={add.id}>
                                       <div className="card h-100 border-0 bg-light p-3 rounded-4 text-center d-flex flex-column justify-content-between">
-                                        <div>
+                                        
+                                        {/* CLIC EN LA IMAGEN Y TÍTULO PARA IR AL DETALLE */}
+                                        <div 
+                                          style={{ cursor: 'pointer' }}
+                                          onClick={() => handleGoToProductDetail(add.id)}
+                                          title="Ver detalle completo del producto"
+                                        >
                                           <img
                                             src={add.image}
                                             alt={add.name}
                                             className="rounded-3 mb-2 mx-auto"
                                             style={{ height: '120px', objectFit: 'contain', width: '100%' }}
                                           />
-                                          <h6 className="fw-bold text-dark fs-7 mb-1 text-truncate">{add.name}</h6>
+                                          <h6 className="fw-bold text-dark fs-7 mb-1 text-truncate hover-underline">{add.name}</h6>
                                           <div className="text-dark fw-bold small mb-2">${add.price.toLocaleString('es-CO')}</div>
                                         </div>
+
                                         <button
                                           type="button"
                                           className="btn btn-success btn-sm text-white shadow-sm rounded-3 fw-bold w-100 text-uppercase py-2"
@@ -858,7 +868,7 @@ export function CartOffcanvas() {
                     </div>
                   </div>
 
-                  {/* RESUMEN LATERAL DEL PEDIDO SIN SCROLLBARS VISIBLES */}
+                  {/* RESUMEN LATERAL DEL PEDIDO */}
                   <div className="col-lg-4">
                     <div className="bg-white p-4 rounded-4 border shadow-sm sticky-top" style={{ top: '20px' }}>
                       <h6 className="fw-bold text-dark text-uppercase mb-3 pb-2 border-bottom">Resumen del Pedido</h6>
