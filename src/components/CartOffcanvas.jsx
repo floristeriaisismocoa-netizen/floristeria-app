@@ -13,18 +13,30 @@ export function CartOffcanvas() {
   const isCajaOrAdmin = Boolean(user && (role === 'caja' || role === 'cajero' || role === 'admin'));
 
   const [products, setProducts] = useState([]);
+  
+  // Función para normalizar ítems del carrito y evitar que vengan sin ID o Nombre
+  const normalizeCart = (rawCart) => {
+    if (!Array.isArray(rawCart)) return [];
+    return rawCart.map((item, index) => ({
+      id: item.id || item._id || `item-${index}`,
+      name: item.name || item.title || 'Arreglo Floral',
+      price: Number(item.price) || 0,
+      quantity: Number(item.quantity) || 1,
+      image: item.image || (item.images && item.images[0]) || 'https://via.placeholder.com/300?text=Sin+Imagen',
+      category: item.category || 'RAMOS'
+    }));
+  };
+
   const [cart, setCart] = useState(() => {
-    return JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
+    const saved = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
+    return normalizeCart(saved);
   });
 
   const [checkoutStep, setCheckoutStep] = useState(1);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Estado para la categoría de recomendados seleccionada en Paso 1
   const [selectedAddonCategory, setSelectedAddonCategory] = useState(null);
-
-  // Estado para la animación de carrito volando por la pantalla
   const [isCartAnimating, setIsCartAnimating] = useState(false);
 
   // Form states - REMITENTE
@@ -46,7 +58,6 @@ export function CartOffcanvas() {
   const [paymentMethod, setPaymentMethod] = useState('TRANSFERENCIA');
   const [deliveryType, setDeliveryType] = useState('DOMICILIO');
 
-  // Menú de recomendados con la división de Ramos
   const addonCategories = [
     { id: 'CHOCOLATES', label: 'CHOCOLATES', icon: '🍫', desc: 'Cajas de bombones y golosinas' },
     { id: 'GLOBOS', label: 'GLOBOS', icon: '🎈', desc: 'Decoraciones con helio' },
@@ -78,6 +89,14 @@ export function CartOffcanvas() {
   const changeCheckoutStep = (newStep) => {
     setCheckoutStep(newStep);
     window.history.pushState({ checkoutStep: newStep }, '', '');
+  };
+
+  const openOffcanvas = () => {
+    const offcanvasElement = document.getElementById('cartOffcanvas');
+    if (offcanvasElement && window.bootstrap && window.bootstrap.Offcanvas) {
+      const bsOffcanvas = window.bootstrap.Offcanvas.getOrCreateInstance(offcanvasElement);
+      bsOffcanvas.show();
+    }
   };
 
   const handleOpenCheckout = () => {
@@ -120,28 +139,10 @@ export function CartOffcanvas() {
 
   useEffect(() => {
     const unsubscribe = subscribeToProducts((data) => {
-      const mappedProducts = data.map((item) => ({
-        id: item.id,
-        name: item.title || item.name || 'Arreglo Floral',
-        price: Number(item.price) || 0,
-        category: (item.category || 'RAMOS_NATURALES').toUpperCase(),
-        image: item.images && item.images.length > 0 
-          ? item.images[0] 
-          : (item.image || 'https://via.placeholder.com/300?text=Sin+Imagen')
-      }));
-      setProducts(mappedProducts);
-    });
-
-    return () => unsubscribe && unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = subscribeToProducts((data) => {
       const mappedProducts = data.map((item) => {
         const cat = (item.category || '').toUpperCase().trim();
         const sub = (item.subCategory || '').toUpperCase().trim();
 
-        // Si la categoría es RAMOS, combinamos con su subcategoría (NATURALES, ETERNOS, FUNEBRES)
         let finalCategory = cat;
         if (cat === 'RAMOS') {
           if (sub.includes('ETERNO')) {
@@ -169,10 +170,28 @@ export function CartOffcanvas() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  const updateCart = (newCart) => {
-    setCart(newCart);
-    localStorage.setItem('floristeria_cart', JSON.stringify(newCart));
+  useEffect(() => {
+    const syncCart = () => {
+      const savedCart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
+      setCart(normalizeCart(savedCart));
+    };
+
+    window.addEventListener('cartUpdated', syncCart);
+    window.addEventListener('storage', syncCart);
+    return () => {
+      window.removeEventListener('cartUpdated', syncCart);
+      window.removeEventListener('storage', syncCart);
+    };
+  }, []);
+
+  const updateCart = (newCart, shouldOpen = false) => {
+    const normalized = normalizeCart(newCart);
+    setCart(normalized);
+    localStorage.setItem('floristeria_cart', JSON.stringify(normalized));
     window.dispatchEvent(new Event('cartUpdated'));
+    if (shouldOpen) {
+      openOffcanvas();
+    }
   };
 
   const handleAddAddonWithAnimation = (product) => {
@@ -189,12 +208,13 @@ export function CartOffcanvas() {
       } else {
         updated = [...cart, { ...product, quantity: 1 }];
       }
-      updateCart(updated);
-    }, 5000);
+      updateCart(updated, false);
+    }, 1500);
   };
 
   const removeFromCart = (productId) => {
-    updateCart(cart.filter((item) => item.id !== productId));
+    const updated = cart.filter((item) => item.id !== productId);
+    updateCart(updated, false);
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -236,8 +256,8 @@ export function CartOffcanvas() {
     try {
       const formattedItems = cart.map((item) => ({
         id: item.id || '',
-        title: item.title || item.name,
-        name: item.title || item.name,
+        title: item.name,
+        name: item.name,
         quantity: Number(item.quantity) || 1,
         price: Number(item.price) || 0,
         image: item.image || ''
@@ -286,7 +306,7 @@ export function CartOffcanvas() {
 
   return (
     <>
-      {/* ANIMACIÓN DEL CARRITO VOLADOR */}
+      {/* ANIMACIÓN DEL CARRITO */}
       {isCartAnimating && (
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
