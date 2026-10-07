@@ -83,32 +83,47 @@ export function Navbar() {
           <div className="collapse navbar-collapse" id="navbarNav">
             <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
               <li className="nav-item">
-                <Link ${isActive('/') && '/' 'active 'text-light'}`} : ? bg-success className="{`nav-link" fw-medium location.pathname="==" px-3 rounded-pill text-white' to="/">
+                <Link
+                  className={`nav-link px-3 rounded-pill fw-medium ${isActive('/') && location.pathname === '/' ? 'active bg-success text-white' : 'text-light'}`}
+                  to="/"
+                >
                   🏠 Tienda
                 </Link>
               </li>
               <li className="nav-item">
-                <Link ${isActive('/rastreo') 'active 'text-light'}`} : ? bg-warning className="{`nav-link" fw-medium px-3 rounded-pill text-dark' to="/rastreo">
+                <Link
+                  className={`nav-link px-3 rounded-pill fw-medium ${isActive('/rastreo') ? 'active bg-warning text-dark' : 'text-light'}`}
+                  to="/rastreo"
+                >
                   🔍 Rastrear Pedido
                 </Link>
               </li>
               {user && (role === 'florist' || role === 'taller' || role === 'admin') && (
                 <li className="nav-item">
-                  <Link ${isActive('/taller') 'active 'text-light'}`} : ? bg-info className="{`nav-link" fw-medium px-3 rounded-pill text-dark' to="/taller">
+                  <Link
+                    className={`nav-link px-3 rounded-pill fw-medium ${isActive('/taller') ? 'active bg-info text-dark' : 'text-light'}`}
+                    to="/taller"
+                  >
                     ✂ Taller
                   </Link>
                 </li>
               )}
               {user && (role === 'delivery' || role === 'domicilio' || role === 'admin') && (
                 <li className="nav-item">
-                  <Link ${isActive('/domicilios') 'active 'text-light'}`} : ? bg-primary className="{`nav-link" fw-medium px-3 rounded-pill text-white' to="/domicilios">
+                  <Link
+                    className={`nav-link px-3 rounded-pill fw-medium ${isActive('/domicilios') ? 'active bg-primary text-white' : 'text-light'}`}
+                    to="/domicilios"
+                  >
                     🚚 Domicilio
                   </Link>
                 </li>
               )}
               {user && role === 'admin' && (
                 <li className="nav-item">
-                  <Link ${isActive('/admin') 'active 'text-light'}`} : ? bg-danger className="{`nav-link" fw-medium px-3 rounded-pill text-white' to="/admin">
+                  <Link
+                    className={`nav-link px-3 rounded-pill fw-medium ${isActive('/admin') ? 'active bg-danger text-white' : 'text-light'}`}
+                    to="/admin"
+                  >
                     📦 Admin Productos
                   </Link>
                 </li>
@@ -166,7 +181,7 @@ export function Navbar() {
         </div>
       </nav>
 
-      <CartOffcanvas/>
+      <CartOffcanvas />
     </>
   );
 }
