@@ -20,30 +20,30 @@ export function LoginView() {
     setSubmitting(true);
 
     try {
-      // 1. Iniciar sesión usando AuthContext
+      // 1. Iniciar sesión usando AuthContext y Firebase Auth
       const userCredential = await login(email, password);
       const user = userCredential.user;
 
       if (user) {
-        // 2. Obtener el rol directamente de Firestore ('users')
+        // 2. Obtener el documento del usuario en la colección 'users' de Firestore
         const userDocRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userDocRef);
 
         if (userSnap.exists()) {
-          const role = userSnap.data().role;
-          const roleUpper = role ? role.toUpperCase() : '';
+          const roleData = userSnap.data().role;
+          const role = roleData ? roleData.toLowerCase() : '';
 
-          // 3. Redirigir según el rol de la base de datos
-          if (roleUpper === 'ADMIN') {
-            navigate('/admin'); // O a la ruta de administración principal
+          // 3. Redirigir de manera exacta según el rol configurado
+          if (role === 'admin') {
+            navigate('/admin');
             return;
-          } else if (roleUpper === 'CAJA') {
+          } else if (role === 'caja' || role === 'cajero') {
             navigate('/caja');
             return;
-          } else if (roleUpper === 'TALLER' || role === 'florist') {
+          } else if (role === 'florist' || role === 'taller') {
             navigate('/taller');
             return;
-          } else if (roleUpper === 'DOMICILIO' || role === 'delivery') {
+          } else if (role === 'delivery' || role === 'domicilio') {
             navigate('/domicilios');
             return;
           }
@@ -53,7 +53,7 @@ export function LoginView() {
         }
       }
 
-      // Fallback a tienda si no coincide el rol
+      // Redirección por defecto si no coincide con ninguno
       navigate('/');
     } catch (err) {
       console.error('Error al iniciar sesión:', err);
@@ -71,7 +71,7 @@ export function LoginView() {
             <i className="bi bi-flower1 fs-1"></i>
           </div>
           <h3 className="fw-bold text-dark mb-1">Acceso Floristería</h3>
-          <p className="text-muted small">Ingresa tus credenciales para acceder al taller o entregas</p>
+          <p className="text-muted small">Ingresa tus credenciales para acceder al sistema</p>
         </div>
 
         {error && (
