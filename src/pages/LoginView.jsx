@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase'; // Ruta exacta de tu configuración
+import { db } from '../config/firebase';
 
 export function LoginView() {
   const [email, setEmail] = useState('');
@@ -31,12 +31,19 @@ export function LoginView() {
 
         if (userSnap.exists()) {
           const role = userSnap.data().role;
+          const roleUpper = role ? role.toUpperCase() : '';
 
           // 3. Redirigir según el rol de la base de datos
-          if (role === 'florist' || role === 'taller') {
+          if (roleUpper === 'ADMIN') {
+            navigate('/admin'); // O a la ruta de administración principal
+            return;
+          } else if (roleUpper === 'CAJA') {
+            navigate('/caja');
+            return;
+          } else if (roleUpper === 'TALLER' || role === 'florist') {
             navigate('/taller');
             return;
-          } else if (role === 'delivery' || role === 'domicilio') {
+          } else if (roleUpper === 'DOMICILIO' || role === 'delivery') {
             navigate('/domicilios');
             return;
           }
