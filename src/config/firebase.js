@@ -2,20 +2,19 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { getStorage } from "firebase/storage"; // 👈 1. Importar getStorage
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyADY-esIRZO_YBK5HHEzvI3AqUU5R1Ik3Q",
-  authDomain: "floristeria-app-fe899.firebaseapp.com",
-  projectId: "floristeria-app-fe899",
-  storageBucket: "floristeria-app-fe899.firebasestorage.app",
-  messagingSenderId: "1023815881706",
-  appId: "1:1023815881706:web:168d6f24493c008f229893",
-  measurementId: "G-0HM0S7W59W"
+  apiKey: "TU_API_KEY_REAL",
+  authDomain: "floristeriaisisnueva.firebaseapp.com",
+  projectId: "floristeriaisisnueva",
+  storageBucket: "floristeriaisisnueva.firebasestorage.app",
+  messagingSenderId: "TU_MESSAGING_SENDER_ID_REAL",
+  appId: "TU_APP_ID_REAL"
 };
 
 const app = initializeApp(firebaseConfig);
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-export const storage = getStorage(app); // 👈 2. Exportar la instancia de storage
+export const storage = getStorage(app);
