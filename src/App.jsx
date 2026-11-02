@@ -33,7 +33,7 @@ export default function App() {
             <Route 
               path="/taller" 
               element={
-                <ProtectedRoute allowedRoles={['florist', 'taller', 'admin']}>
+                <ProtectedRoute allowedRoles={['florist', 'taller', 'admin', 'ADMIN']}>
                   <KitchenView />
                 </ProtectedRoute>
               } 
@@ -42,7 +42,7 @@ export default function App() {
             <Route 
               path="/domicilios" 
               element={
-                <ProtectedRoute allowedRoles={['delivery', 'domicilio', 'admin']}>
+                <ProtectedRoute allowedRoles={['delivery', 'domicilio', 'admin', 'ADMIN']}>
                   <DeliveryView />
                 </ProtectedRoute>
               } 
@@ -51,7 +51,7 @@ export default function App() {
             <Route 
               path="/admin" 
               element={
-                <ProtectedRoute allowedRoles={['admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'ADMIN']}>
                   <AdminProductsView />
                 </ProtectedRoute>
               } 

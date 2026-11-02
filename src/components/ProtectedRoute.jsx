@@ -23,9 +23,14 @@ export function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" replace />;
   }
 
-  // 3. Si hay restricción de roles y el usuario no coincide, redirigir al inicio
-  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-    return <Navigate to="/" replace />;
+  // 3. Normalizar el rol del usuario y los roles permitidos a minúsculas para evitar conflictos de mayúsculas
+  if (allowedRoles && allowedRoles.length > 0) {
+    const userRole = role ? role.toLowerCase() : '';
+    const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase());
+
+    if (!normalizedAllowedRoles.includes(userRole)) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   // 4. Si pasa las validaciones, renderizar la pantalla protegida
