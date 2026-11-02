@@ -117,26 +117,41 @@ export function ClientView() {
     window.dispatchEvent(new Event('cartUpdated'));
   };
 
+  // Suscripción protegida a Firebase para evitar bucles o bloqueos de carga infinitos
   useEffect(() => {
-    const unsubscribe = subscribeToProducts((data) => {
-      const mappedProducts = data.map((item) => ({
-        id: item.id,
-        name: item.title || item.name || 'Arreglo Floral',
-        title: item.title || item.name || 'Arreglo Floral',
-        price: Number(item.price) || 0,
-        category: (item.category || 'RAMOS').toUpperCase(),
-        subCategory: item.subCategory ? item.subCategory.toUpperCase() : null,
-        description: item.description || '',
-        images: item.images && item.images.length > 0 ? item.images : (item.image ? [item.image] : []),
-        image: item.images && item.images.length > 0 
-          ? item.images[0] 
-          : (item.image || 'https://via.placeholder.com/300?text=Sin+Imagen')
-      }));
-      setProducts(mappedProducts);
+    let unsubscribe;
+    try {
+      unsubscribe = subscribeToProducts(
+        (data) => {
+          const mappedProducts = data.map((item) => ({
+            id: item.id,
+            name: item.title || item.name || 'Arreglo Floral',
+            title: item.title || item.name || 'Arreglo Floral',
+            price: Number(item.price) || 0,
+            category: (item.category || 'RAMOS').toUpperCase(),
+            subCategory: item.subCategory ? item.subCategory.toUpperCase() : null,
+            description: item.description || '',
+            images: item.images && item.images.length > 0 ? item.images : (item.image ? [item.image] : []),
+            image: item.images && item.images.length > 0 
+              ? item.images[0] 
+              : (item.image || 'https://via.placeholder.com/300?text=Sin+Imagen')
+          }));
+          setProducts(mappedProducts);
+          setLoading(false);
+        },
+        (error) => {
+          console.error("Error al obtener productos desde Firebase:", error);
+          setLoading(false); // Detiene la carga si hay un error de reglas o red
+        }
+      );
+    } catch (err) {
+      console.error("Excepción en la suscripción:", err);
       setLoading(false);
-    });
+    }
 
-    return () => unsubscribe && unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const addToCart = (product) => {
