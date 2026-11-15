@@ -1,11 +1,10 @@
-// src/config/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyADY-esIRZO_YBK5HHEzvi3AqUU5R1Ik3Q",
+  apiKey: "AIzaSyA5OTDS7jEbyjz6THEdkzNGfTtKApOt5-c",
   authDomain: "floristeria-app-fe899.firebaseapp.com",
   projectId: "floristeria-app-fe899",
   storageBucket: "floristeria-app-fe899.firebasestorage.app",
@@ -16,4 +15,4 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const storage = getStorage(app);   
