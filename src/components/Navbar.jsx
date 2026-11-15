@@ -11,9 +11,6 @@ export function Navbar() {
 
   const [cartCount, setCartCount] = useState(0);
 
-  // Normalizar el rol a minúsculas de forma segura para evitar problemas de mayúsculas/minúsculas
-  const currentRole = role ? role.toLowerCase() : '';
-
   useEffect(() => {
     const updateCartCount = () => {
       const cart = JSON.parse(localStorage.getItem('floristeria_cart') || '[]');
@@ -101,9 +98,7 @@ export function Navbar() {
                   🔍 Rastrear Pedido
                 </Link>
               </li>
-
-              {/* Enlaces accesibles para Taller, Domicilio o Admin */}
-              {user && (currentRole === 'florist' || currentRole === 'taller' || currentRole === 'admin') && (
+              {user && (role === 'florist' || role === 'taller' || role === 'admin') && (
                 <li className="nav-item">
                   <Link
                     className={`nav-link px-3 rounded-pill fw-medium ${isActive('/taller') ? 'active bg-info text-dark' : 'text-light'}`}
@@ -113,7 +108,7 @@ export function Navbar() {
                   </Link>
                 </li>
               )}
-              {user && (currentRole === 'delivery' || currentRole === 'domicilio' || currentRole === 'admin') && (
+              {user && (role === 'delivery' || role === 'domicilio' || role === 'admin') && (
                 <li className="nav-item">
                   <Link
                     className={`nav-link px-3 rounded-pill fw-medium ${isActive('/domicilios') ? 'active bg-primary text-white' : 'text-light'}`}
@@ -123,7 +118,7 @@ export function Navbar() {
                   </Link>
                 </li>
               )}
-              {user && currentRole === 'admin' && (
+              {user && role === 'admin' && (
                 <li className="nav-item">
                   <Link
                     className={`nav-link px-3 rounded-pill fw-medium ${isActive('/admin') ? 'active bg-danger text-white' : 'text-light'}`}
@@ -136,7 +131,7 @@ export function Navbar() {
             </ul>
 
             <div className="d-flex align-items-center gap-3">
-              {/* BOTÓN CARRITO DESKTOP */}
+              {/* BOTÓN CARRITO DESKTOP MÁS GRANDE Y LLAMATIVO */}
               <button
                 id="desktopCartBtn"
                 type="button"
@@ -157,14 +152,14 @@ export function Navbar() {
               {user ? (
                 <div className="d-flex align-items-center gap-2">
                   <span className={`badge rounded-pill px-3 py-2 fw-bold ${
-                    currentRole === 'caja' || currentRole === 'cajero'
+                    role === 'caja' || role === 'cajero'
                       ? 'bg-success text-white'
-                      : currentRole === 'admin'
+                      : role === 'admin'
                       ? 'bg-primary text-white'
                       : 'bg-secondary text-white'
                   }`}>
-                    <i className={`bi ${currentRole === 'caja' || currentRole === 'cajero' ? 'bi-cash-register' : 'bi-person-fill'} me-1`}></i>
-                    {currentRole === 'caja' || currentRole === 'cajero' ? 'Caja Registradora' : role.toUpperCase()}
+                    <i className={`bi ${role === 'caja' || role === 'cajero' ? 'bi-cash-register' : 'bi-person-fill'} me-1`}></i>
+                    {role === 'caja' || role === 'cajero' ? 'Caja Registradora' : role.toUpperCase()}
                   </span>
 
                   <button
