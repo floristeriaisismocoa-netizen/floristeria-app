@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase'; // Ruta exacta de tu configuración
+import { db } from '../config/firebase';
 
 export function LoginView() {
   const [email, setEmail] = useState('');
@@ -20,37 +20,44 @@ export function LoginView() {
     setSubmitting(true);
 
     try {
-      // 1. Iniciar sesión usando AuthContext
+      // 1. Iniciar sesión en Firebase Auth
       const userCredential = await login(email, password);
       const user = userCredential.user;
 
-      if (user) {
-        // 2. Obtener el rol directamente de Firestore ('users')
-        const userDocRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userDocRef);
-
-        if (userSnap.exists()) {
-          const role = userSnap.data().role;
-
-          // 3. Redirigir según el rol de la base de datos
-          if (role === 'florist' || role === 'taller') {
-            navigate('/taller');
-            return;
-          } else if (role === 'delivery' || role === 'domicilio') {
-            navigate('/domicilios');
-            return;
-          }
-        } else {
-          setError('El usuario no tiene un rol configurado en Firestore.');
-          return;
-        }
+      if (!user) {
+        throw new Error('No se pudo obtener la información del usuario.');
       }
 
-      // Fallback a tienda si no coincide el rol
-      navigate('/');
+      // 2. Obtener el rol en Firestore ('users')
+      const userDocRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userDocRef);
+
+      if (!userSnap.exists()) {
+        setError('El usuario autenticado no tiene un registro en la colección "users" de Firestore.');
+        setSubmitting(false);
+        return;
+      }
+
+      const userData = userSnap.data();
+      const role = userData.role ? userData.role.toLowerCase() : '';
+
+      // 3. Redirigir según el rol de la base de datos
+      if (role === 'admin' || role === 'florist' || role === 'taller') {
+        navigate('/taller');
+        return;
+      } else if (role === 'delivery' || role === 'domicilio') {
+        navigate('/domicilios');
+        return;
+      } else {
+        navigate('/');
+      }
     } catch (err) {
-      console.error('Error al iniciar sesión:', err);
-      setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
+      console.error('Error detallado al iniciar sesión:', err);
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        setError('Correo o contraseña incorrectos.');
+      } else {
+        setError(`Error de acceso: ${err.message}`);
+      }
     } finally {
       setSubmitting(false);
     }
